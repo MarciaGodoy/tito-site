@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laboratório de Machine Learning — Classificação de Texto</title>
+<style>
+:root{
+  --bg:#f5f7fb; --card:#fff; --ink:#172033; --muted:#657089;
+  --primary:#2447c6; --primary2:#4d6fe8; --line:#dfe4ee;
+  --good:#16835b; --bad:#c0394d; --warn:#b7791f; --soft:#eef2ff;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:linear-gradient(135deg,#172b78,#355bd4);color:white;padding:28px 24px}
+header .wrap,main{max-width:1180px;margin:auto}
+h1{margin:0 0 7px;font-size:28px} h2{margin:0 0 14px;font-size:19px} h3{margin:0 0 10px;font-size:15px}
+.subtitle{opacity:.88;max-width:850px;line-height:1.5}
+.flow{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+.flow span{padding:8px 12px;border:1px solid rgba(255,255,255,.28);border-radius:20px;background:rgba(255,255,255,.1);font-size:13px}
+main{padding:22px 18px 50px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 15px rgba(25,40,80,.05);margin-bottom:18px}
+.full{grid-column:1/-1}
+label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+textarea,input,select{width:100%;border:1px solid #cfd6e4;border-radius:9px;padding:10px 11px;font:inherit;background:white;color:var(--ink)}
+textarea{min-height:170px;resize:vertical}
+button{border:0;border-radius:9px;padding:10px 15px;font-weight:700;cursor:pointer;background:var(--primary);color:white}
+button:hover{filter:brightness(1.07)}
+button.secondary{background:#e9edfa;color:#213a9b}
+button.danger{background:#fff0f2;color:#b4233c;border:1px solid #f1c5cc}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
+.help{font-size:12px;color:var(--muted);line-height:1.45}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:#f7f9fd;border:1px solid var(--line);border-radius:10px;padding:13px}
+.stat b{font-size:22px;display:block;margin-top:3px}
+.kpi{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#f7f8fc}
+.badge{display:inline-block;padding:4px 8px;border-radius:20px;background:var(--soft);color:#2945ae;font-size:12px;font-weight:700}
+.ok{color:var(--good)} .err{color:var(--bad)}
+pre{background:#111827;color:#dbe5ff;border-radius:10px;padding:14px;overflow:auto;font-size:12px;max-height:300px}
+.result{border:1px solid #cad5ff;background:#f3f6ff;border-radius:12px;padding:15px;margin-top:12px}
+.result .prediction{font-size:25px;font-weight:800;color:#2447c6}
+.bar{height:10px;background:#e5e9f2;border-radius:8px;overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;background:#4264d8}
+.matrix{display:grid;grid-template-columns:repeat(3,minmax(70px,1fr));max-width:430px;border:1px solid var(--line)}
+.matrix div{padding:12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center}
+.matrix .head{font-weight:700;background:#f6f7fb}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.step{padding:13px;border-radius:10px;background:#f7f9ff;border:1px solid #dce3fb}
+.step strong{display:block;color:#2747b7;margin-bottom:5px}
+.status{font-size:13px;padding:9px 11px;border-radius:8px;background:#f2f5fa;color:#56627a;margin-bottom:12px}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.stats{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:1fr 1fr}}
+@media(max-width:500px){.stats{grid-template-columns:1fr 1fr}.flow{gap:5px}}
+</style>
+</head>
+<body>
+<header>
+<div class="wrap">
+<h1>Laboratório de Machine Learning</h1>
+<div class="subtitle">Classificação de texto com <b>Naive Bayes Multinomial</b>, implementado em JavaScript puro. O algoritmo é realmente treinado com os dados fornecidos, avaliado em dados separados e reutilizado para classificar novos textos.</div>
+<div class="flow">
+<span>① DADOS</span><span>② TREINAMENTO</span><span>③ MODELO</span><span>④ AVALIAÇÃO</span><span>⑤ PREDIÇÃO</span>
+</div>
+</div>
+</header>
+
+<main>
+<div class="grid">
+<section class="card">
+<h2>1. Dados de treinamento</h2>
+<div class="status" id="dataStatus">Carregando conjunto demonstrativo…</div>
+<label for="dataset">CSV: <code>texto,classe</code> — uma observação por linha</label>
+<textarea id="dataset"></textarea>
+<div class="actions">
+<button onclick="loadDemo()">Carregar exemplo</button>
+<button class="secondary" onclick="parseDataset()">Ler dados</button>
+</div>
+<p class="help">Exemplo de classes: <b>positivo</b> e <b>negativo</b>. O sistema não conhece as classes antecipadamente: elas são extraídas do próprio conjunto.</p>
+</section>
+
+<section class="card">
+<h2>2. Configuração do experimento</h2>
+<label for="testSize">Proporção reservada para teste</label>
+<select id="testSize">
+<option value="0.20">20% — recomendado</option>
+<option value="0.25">25%</option>
+<option value="0.30">30%</option>
+<option value="0.10">10%</option>
+</select>
+<label style="margin-top:14px" for="seed">Semente aleatória</label>
+<input id="seed" type="number" value="42">
+<div class="actions"><button onclick="trainModel()">Treinar modelo</button><button class="secondary" onclick="saveModel()">Armazenar modelo</button><button class="secondary" onclick="loadModel()">Recuperar modelo</button></div>
+<p class="help">O conjunto é embaralhado de forma determinística pela semente e dividido em treinamento e teste. O modelo armazenado contém vocabulário, probabilidades e classes — não apenas os resultados.</p>
+</section>
+
+<section class="card full">
+<h2>3. Ciclo de Machine Learning</h2>
+<div class="steps">
+<div class="step"><strong>DADOS</strong><span>Textos + rótulos</span></div>
+<div class="step"><strong>TREINAMENTO</strong><span>Contagem de palavras por classe</span></div>
+<div class="step"><strong>MODELO</strong><span>Probabilidades aprendidas</span></div>
+<div class="step"><strong>AVALIAÇÃO</strong><span>Predições no teste</span></div>
+<div class="step"><strong>PREDIÇÃO</strong><span>Novo texto sem rótulo</span></div>
+</div>
+</section>
+
+<section class="card">
+<h2>4. Avaliação do modelo</h2>
+<div class="stats">
+<div class="stat"><span class="kpi">Acurácia</span><b id="accuracy">—</b></div>
+<div class="stat"><span class="kpi">Precisão (macro)</span><b id="precision">—</b></div>
+<div class="stat"><span class="kpi">Recall (macro)</span><b id="recall">—</b></div>
+<div class="stat"><span class="kpi">F1 (macro)</span><b id="f1">—</b></div>
+</div>
+<div style="margin-top:18px" id="matrixArea"><span class="help">Treine o modelo para gerar a matriz de confusão.</span></div>
+</section>
+
+<section class="card">
+<h2>5. Novo texto → previsão</h2>
+<label for="newText">Digite um texto sem informar a classe</label>
+<textarea id="newText" style="min-height:125px" placeholder="Ex.: O produto foi excelente e o atendimento muito rápido."></textarea>
+<div class="actions"><button onclick="predictText()">Classificar texto</button></div>
+<div id="predictionArea"></div>
+</section>
+
+<section class="card full">
+<h2>6. O que o algoritmo aprendeu?</h2>
+<div id="modelInfo" class="help">Nenhum modelo treinado nesta sessão.</div>
+<div id="topWords"></div>
+</section>
+
+<section class="card full">
+<h2>7. Auditoria: predições do conjunto de teste</h2>
+<div id="predTable" class="help">As predições aparecerão aqui após o treinamento.</div>
+</section>
+
+<section class="card full">
+<h2>8. Modelo armazenado</h2>
+<pre id="modelJson">Nenhum modelo armazenado.</pre>
+</section>
+</div>
+</main>
+
+<script>
+"use strict";
+
+const DEMO = `texto,classe
+"o produto é excelente e superou minhas expectativas",positivo
+"adorei o produto e o atendimento foi ótimo",positivo
+"excelente qualidade e entrega muito rápida",positivo
+"estou muito satisfeito com a compra",positivo
+"o serviço foi ótimo e eficiente",positivo
+"produto maravilhoso, recomendo para todos",positivo
+"gostei muito da experiência de compra",positivo
+"atendimento excelente e equipe muito atenciosa",positivo
+"a qualidade é muito boa",positivo
+"recebi rapidamente e fiquei satisfeito",positivo
+"produto bom e atendimento cordial",positivo
+"foi uma ótima experiência",positivo
+"recomendo, produto confiável e eficiente",positivo
+"o resultado foi excelente",positivo
+"estou feliz com a compra",positivo
+"o produto funcionou muito bem",positivo
+"péssimo produto, não recomendo",negativo
+"odiei a experiência de compra",negativo
+"produto ruim e de baixa qualidade",negativo
+"estou muito insatisfeito com o serviço",negativo
+"atendimento péssimo e demorado",negativo
+"produto horrível e decepcionante",negativo
+"não gostei do produto",negativo
+"a entrega foi muito atrasada",negativo
+"qualidade ruim e preço alto",negativo
+"tive uma péssima experiência",negativo
+"não recomendo este produto",negativo
+"o serviço foi lento e ruim",negativo
+"fiquei decepcionado com a compra",negativo
+"o produto não funcionou bem",negativo
+"atendimento ruim e pouco eficiente",negativo
+"estou insatisfeito com o resultado",negativo`;
+
+let dataset=[], model=null, lastEvaluation=null;
+
+function escapeHtml(s){
+ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function parseCSVLine(line){
+ const out=[]; let cur="", q=false;
+ for(let i=0;i<line.length;i++){
+   const ch=line[i];
+   if(ch==='"'){ if(q && line[i+1]==='"'){cur+='"';i++;} else q=!q; }
+   else if(ch===',' && !q){out.push(cur.trim());cur="";}
+   else cur+=ch;
+ }
+ out.push(cur.trim());
+ return out;
+}
+
+function parseDataset(){
+ const lines=document.getElementById("dataset").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ if(lines.length<3){alert("Forneça pelo menos 2 observações além do cabeçalho.");return false;}
+ let start=0, first=parseCSVLine(lines[0]).map(x=>x.toLowerCase());
+ if(first.includes("texto") && (first.includes("classe") || first.includes("label"))) start=1;
+ const rows=[];
+ for(let i=start;i<lines.length;i++){
+   const p=parseCSVLine(lines[i]);
+   if(p.length<2 || !p[0] || !p[1]) continue;
+   rows.push({text:p[0], label:p[1]});
+ }
+ const classes=[...new Set(rows.map(r=>r.label))];
+ if(classes.length<2){alert("É necessário ter pelo menos duas classes.");return false;}
+ dataset=rows;
+ document.getElementById("dataStatus").innerHTML=`<b>${rows.length}</b> observações carregadas · <b>${classes.length}</b> classes: ${classes.map(escapeHtml).join(", ")}`;
+ return true;
+}
+function loadDemo(){document.getElementById("dataset").value=DEMO;parseDataset();}
+
+function normalize(text){
+ return text.toLowerCase()
+   .normalize("NFD").replace(/[\\u0300-\\u036f]/g,"")
+   .replace(/https?:\\/\\/\\S+/g," ")
+   .replace(/[^a-z0-9áéíóúàâêôãõçü\\s]/gi," ")
+   .split(/\\s+/).filter(Boolean);
+}
+
+function hashSeed(n){let x=n>>>0; return function(){x=(x*1664525+1013904223)>>>0;return x/4294967296;};}
+
+function splitData(rows,testRatio,seed){
+ const groups={}; rows.forEach(r=>(groups[r.label]??=[]).push(r));
+ const rand=hashSeed(seed), train=[], test=[];
+ Object.values(groups).forEach(g=>{
+   for(let i=g.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[g[i],g[j]]=[g[j],g[i]];}
+   const n=Math.max(1,Math.round(g.length*testRatio));
+   test.push(...g.slice(0,n)); train.push(...g.slice(n));
+ });
+ if(train.length<2){throw new Error("Poucos dados para criar conjunto de treinamento.");}
+ return {train,test};
+}
+
+function trainNaiveBayes(train){
+ const classes=[...new Set(train.map(r=>r.label))];
+ const classDocCount={}, wordCounts={}, totalWords={}, vocab=new Set();
+ classes.forEach(c=>{classDocCount[c]=0;wordCounts[c]={};totalWords[c]=0;});
+ train.forEach(r=>{
+   classDocCount[r.label]++;
+   normalize(r.text).forEach(w=>{
+     vocab.add(w); wordCounts[r.label][w]=(wordCounts[r.label][w]||0)+1; totalWords[r.label]++;
+   });
+ });
+ const totalDocs=train.length;
+ const logPrior={}; classes.forEach(c=>logPrior[c]=Math.log(classDocCount[c]/totalDocs));
+ const m={
+   type:"Multinomial Naive Bayes",
+   version:1,
+   createdAt:new Date().toISOString(),
+   classes, vocabulary:[...vocab],
+   classDocCount,totalWords,wordCounts,logPrior,
+   alpha:1,
+   totalDocs
+ };
+ return m;
+}
+
+function predictWithModel(text,m){
+ const words=normalize(text);
+ const V=m.vocabulary.length;
+ let best=null, scores={};
+ m.classes.forEach(c=>{
+   let score=m.logPrior[c];
+   const denom=m.totalWords[c]+m.alpha*V;
+   words.forEach(w=>{
+     const count=m.wordCounts[c][w]||0;
+     score += Math.log((count+m.alpha)/denom);
+   });
+   scores[c]=score;
+   if(best===null || score>scores[best]) best=c;
+ });
+ const vals=Object.values(scores), max=Math.max(...vals);
+ const exps=Object.fromEntries(Object.entries(scores).map(([c,s])=>[c,Math.exp(s-max)]));
+ const sum=Object.values(exps).reduce((a,b)=>a+b,0);
+ const probabilities=Object.fromEntries(Object.entries(exps).map(([c,v])=>[c,v/sum]));
+ return {label:best, probabilities, scores};
+}
+
+function evaluate(test,m){
+ const rows=test.map(r=>({...r,pred:predictWithModel(r.text,m).label}));
+ const classes=m.classes;
+ const cm=Object.fromEntries(classes.map(c=>[c,Object.fromEntries(classes.map(d=>[d,0]))]));
+ rows.forEach(r=>{if(cm[r.label] && cm[r.label][r.pred]!==undefined)cm[r.label][r.pred]++;});
+ const correct=rows.filter(r=>r.label===r.pred).length;
+ const accuracy=correct/rows.length;
+ let ps=[],rs=[],fs=[];
+ classes.forEach(c=>{
+   const tp=cm[c][c];
+   const fp=classes.reduce((a,d)=>a+(d!==c?cm[d][c]:0),0);
+   const fn=classes.reduce((a,d)=>a+(d!==c?cm[c][d]:0),0);
+   const p=tp+fp?tp/(tp+fp):0, r=tp+fn?tp/(tp+fn):0, f=p+r?2*p*r/(p+r):0;
+   ps.push(p);rs.push(r);fs.push(f);
+ });
+ return {rows,cm,accuracy,precision:ps.reduce((a,b)=>a+b,0)/classes.length,recall:rs.reduce((a,b)=>a+b,0)/classes.length,f1:fs.reduce((a,b)=>a+b,0)/classes.length};
+}
+
+function trainModel(){
+ try{
+   if(!parseDataset())return;
+   const ratio=Number(document.getElementById("testSize").value);
+   const seed=Number(document.getElementById("seed").value)||42;
+   const {train,test}=splitData(dataset,ratio,seed);
+   model=trainNaiveBayes(train);
+   lastEvaluation=evaluate(test,model);
+   renderEvaluation(train,test);
+   renderModel();
+   document.getElementById("predictionArea").innerHTML="";
+ }catch(e){alert("Não foi possível treinar: "+e.message);}
+}
+
+function pct(x){return (100*x).toFixed(1)+"%";}
+
+function renderEvaluation(train,test){
+ const e=lastEvaluation;
+ document.getElementById("accuracy").textContent=pct(e.accuracy);
+ document.getElementById("precision").textContent=pct(e.precision);
+ document.getElementById("recall").textContent=pct(e.recall);
+ document.getElementById("f1").textContent=pct(e.f1);
+ const cs=model.classes;
+ let h='<h3>Matriz de confusão</h3><div class="help">Linhas = classe real · colunas = classe prevista</div><div class="matrix">';
+ h+='<div class="head">Real \\ Prev.</div>'+cs.map(c=>`<div class="head">${escapeHtml(c)}</div>`).join("");
+ cs.forEach(r=>{h+=`<div class="head">${escapeHtml(r)}</div>`+cs.map(c=>`<div>${e.cm[r][c]}</div>`).join("");});
+ h+='</div>';
+ h+=`<p class="help"><b>${train.length}</b> observações usadas no treinamento e <b>${test.length}</b> reservadas para teste.</p>`;
+ document.getElementById("matrixArea").innerHTML=h;
+ let t='<table><thead><tr><th>Texto</th><th>Real</th><th>Prevista</th><th>Resultado</th></tr></thead><tbody>';
+ e.rows.forEach(r=>t+=`<tr><td>${escapeHtml(r.text)}</td><td>${escapeHtml(r.label)}</td><td>${escapeHtml(r.pred)}</td><td class="${r.label===r.pred?'ok':'err'}"><b>${r.label===r.pred?'✓ correto':'✗ erro'}</b></td></tr>`);
+ t+='</tbody></table>';
+ document.getElementById("predTable").innerHTML=t;
+}
+
+function renderModel(){
+ const m=model;
+ document.getElementById("modelInfo").innerHTML=
+ `<span class="badge">${escapeHtml(m.type)}</span> &nbsp; `+
+ `<b>${m.totalDocs}</b> documentos de treinamento · <b>${m.vocabulary.length}</b> palavras no vocabulário · classes: ${m.classes.map(escapeHtml).join(", ")}`;
+ let html='<h3 style="margin-top:18px">Palavras mais frequentes por classe no conjunto de treinamento</h3><div class="grid" style="gap:10px">';
+ m.classes.forEach(c=>{
+   const top=Object.entries(m.wordCounts[c]).sort((a,b)=>b[1]-a[1]).slice(0,10);
+   html+=`<div style="border:1px solid var(--line);border-radius:10px;padding:12px"><b>${escapeHtml(c)}</b>`;
+   top.forEach(([w,n])=>html+=`<div style="margin-top:7px;font-size:12px">${escapeHtml(w)} <span style="float:right">${n}</span><div class="bar"><i style="width:${Math.min(100,n*15)}%"></i></div></div>`);
+   html+='</div>';
+ });
+ html+='</div>';
+ document.getElementById("topWords").innerHTML=html;
+ document.getElementById("modelJson").textContent=JSON.stringify(m,null,2);
+}
+
+function predictText(){
+ if(!model){alert("Treine ou recupere um modelo antes da previsão.");return;}
+ const text=document.getElementById("newText").value.trim();
+ if(!text){alert("Digite um texto para classificar.");return;}
+ const p=predictWithModel(text,model);
+ const sorted=Object.entries(p.probabilities).sort((a,b)=>b[1]-a[1]);
+ let h=`<div class="result"><div class="kpi">CLASSE PREVISTA</div><div class="prediction">${escapeHtml(p.label)}</div><div class="help" style="margin-top:8px">Probabilidades normalizadas a partir dos escores do modelo:</div>`;
+ sorted.forEach(([c,v])=>h+=`<div style="margin-top:10px;font-weight:700">${escapeHtml(c)} <span style="float:right">${pct(v)}</span><div class="bar"><i style="width:${v*100}%"></i></div></div>`);
+ h+=`<p class="help" style="margin-top:12px"><b>Importante:</b> a probabilidade acima é a saída normalizada do modelo Naive Bayes, não uma probabilidade clínica nem uma medida de certeza.</p></div>`;
+ document.getElementById("predictionArea").innerHTML=h;
+}
+
+function saveModel(){
+ if(!model){alert("Treine um modelo antes de armazená-lo.");return;}
+ localStorage.setItem("ml_text_classifier_model",JSON.stringify(model));
+ alert("Modelo armazenado no navegador (localStorage).");
+}
+function loadModel(){
+ const raw=localStorage.getItem("ml_text_classifier_model");
+ if(!raw){alert("Não há modelo armazenado neste navegador.");return;}
+ try{model=JSON.parse(raw);lastEvaluation=null;renderModel();document.getElementById("modelJson").textContent=JSON.stringify(model,null,2);alert("Modelo recuperado com sucesso.");}
+ catch(e){alert("O modelo armazenado está inválido.");}
+}
+
+loadDemo();
+</script>
+</body>
+</html>
