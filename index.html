@@ -74,6 +74,17 @@ pre{background:#111827;color:#dbe5ff;border-radius:10px;padding:14px;overflow:au
 <div class="status" id="dataStatus">Carregando conjunto demonstrativo…</div>
 <label for="dataset">CSV: <code>texto,classe</code> — uma observação por linha</label>
 <textarea id="dataset"></textarea>
+
+<label for="csvFile" style="margin-top:12px">
+  Ou importar arquivo CSV
+</label>
+<input
+  id="csvFile"
+  type="file"
+  accept=".csv,text/csv"
+  onchange="importCSVFile(event)"
+>
+  
 <div class="actions">
 <button onclick="loadDemo()">Carregar exemplo</button>
 <button class="secondary" onclick="parseDataset()">Ler dados</button>
