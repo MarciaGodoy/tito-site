@@ -199,6 +199,36 @@ function parseCSVLine(line){
  return out;
 }
 
+
+function importCSVFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    document.getElementById("dataset").value = e.target.result;
+
+    const ok = parseDataset();
+
+    if (ok) {
+      alert(
+        "Arquivo importado: " + file.name +
+        "\nObservações carregadas: " + dataset.length
+      );
+    }
+
+    event.target.value = "";
+  };
+
+  reader.onerror = function() {
+    alert("Não foi possível ler o arquivo CSV.");
+  };
+
+  reader.readAsText(file, "UTF-8");
+}
+
+  
 function parseDataset(){
  const lines=document.getElementById("dataset").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  if(lines.length<3){alert("Forneça pelo menos 2 observações além do cabeçalho.");return false;}
