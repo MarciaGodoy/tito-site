@@ -1,0 +1,882 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laboratório de Machine Learning — Classificação de Texto</title>
+
+<style>
+:root {
+  --bg: #f3f6fb;
+  --card: #ffffff;
+  --ink: #172033;
+  --muted: #64748b;
+  --primary: #2447a8;
+  --blue-light: #eaf1ff;
+  --border: #dce4f0;
+  --green: #087443;
+  --red: #b42318;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.5;
+}
+header {
+  padding: 28px 18px;
+  background: #172b59;
+  color: white;
+}
+header .inner, main {
+  max-width: 1050px;
+  margin: auto;
+}
+header h1 {
+  margin: 0 0 6px;
+  font-size: 27px;
+}
+header p {
+  margin: 0;
+  color: #dce8ff;
+}
+main { padding: 20px 14px 40px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 19px;
+  margin-bottom: 17px;
+  box-shadow: 0 2px 8px rgba(20,40,80,.04);
+}
+h2 { font-size: 20px; margin: 0 0 12px; }
+h3 { font-size: 16px; margin: 16px 0 8px; }
+p { margin: 8px 0; }
+.small { font-size: 13px; color: var(--muted); }
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+button, .file-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 15px;
+  background: var(--primary);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-block;
+}
+button.secondary, .file-button.secondary {
+  background: #e9eef8;
+  color: #20345d;
+}
+button:disabled { opacity: .5; cursor: not-allowed; }
+input[type="file"] { display: none; }
+textarea, input[type="text"] {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 12px;
+  font: inherit;
+  background: white;
+  color: var(--ink);
+}
+textarea { min-height: 110px; resize: vertical; }
+.status {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.success { color: var(--green); }
+.error { color: var(--red); }
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+.metric {
+  background: #f4f7fc;
+  padding: 13px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+}
+.metric strong { display: block; font-size: 23px; }
+.metric span { font-size: 12px; color: var(--muted); }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 13px;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+th { background: #edf2fa; }
+.table-wrap { overflow-x: auto; }
+.result {
+  border: 1px solid var(--border);
+  background: #f8faff;
+  padding: 14px;
+  border-radius: 9px;
+  margin-top: 12px;
+}
+.result strong { color: var(--primary); }
+.warning {
+  background: #fff4e5;
+  border: 1px solid #f3cf98;
+  color: #743d00;
+  border-radius: 9px;
+  padding: 13px;
+  margin-top: 12px;
+}
+.hidden { display: none; }
+footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 12px;
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="inner">
+    <h1>Laboratório de Machine Learning</h1>
+    <p>Classificação de texto com Naive Bayes</p>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1. Importar base de dados</h2>
+    <p>Selecione um arquivo CSV contendo duas colunas: <b>texto</b> e <b>classe</b>.</p>
+    <p class="small">O arquivo pode usar ponto e vírgula (;) ou vírgula (,) como separador. A primeira linha deve conter os nomes das colunas.</p>
+
+    <div class="row">
+      <label class="file-button" for="csvFile">Selecionar arquivo CSV</label>
+      <input id="csvFile" type="file" accept=".csv,text/csv">
+      <button id="demoBtn" class="secondary" type="button">Carregar base demonstrativa</button>
+    </div>
+
+    <div id="dataStatus" class="status" role="status">
+      Nenhuma base carregada.
+    </div>
+    <div id="classSummary"></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Treinar e avaliar o modelo</h2>
+    <p>O algoritmo aprende padrões nas mensagens e estima a classe de cada texto.</p>
+    <div class="row">
+      <button id="trainBtn" type="button">Treinar e avaliar</button>
+      <button id="saveBtn" class="secondary" type="button" disabled>Salvar modelo neste navegador</button>
+      <button id="loadBtn" class="secondary" type="button">Carregar modelo salvo</button>
+    </div>
+    <div id="trainStatus" class="status">O modelo ainda não foi treinado.</div>
+    <div id="metrics" class="metrics"></div>
+    <div id="evaluation"></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Classificar nova mensagem</h2>
+    <p>Digite uma mensagem em português e clique em classificar.</p>
+    <textarea id="messageInput" placeholder="Ex.: Estou grávida e preciso confirmar minha próxima consulta."></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="predictBtn" type="button">Classificar mensagem</button>
+      <button id="clearBtn" class="secondary" type="button">Limpar</button>
+    </div>
+    <div id="prediction" aria-live="polite"></div>
+    <p class="small">A classificação indica apenas a previsão estatística do modelo. Não é diagnóstico nem avaliação clínica.</p>
+  </section>
+
+  <section class="card">
+    <h2>4. Sobre o experimento</h2>
+    <p>O Naive Bayes utiliza a frequência das palavras nas mensagens de treinamento para calcular qual classe é mais provável.</p>
+    <p>O desempenho depende da qualidade, da quantidade e da representatividade dos exemplos rotulados. Uma acurácia elevada não garante que mensagens novas serão classificadas corretamente.</p>
+    <p class="small">Os dados são processados no navegador. O modelo salvo fica no armazenamento local deste navegador e não é enviado automaticamente a um servidor.</p>
+    <div class="warning">
+      <b>Atenção à segurança materna:</b> se houver sangramento durante a gestação ou outro sintoma preocupante, procure orientação profissional de saúde imediatamente. Não espere a resposta deste classificador para decidir o que fazer.
+    </div>
+  </section>
+</main>
+
+<footer>Laboratório educacional de Machine Learning</footer>
+
+<script>
+"use strict";
+
+/* =========================================================
+   ESTADO DA APLICAÇÃO
+   ========================================================= */
+
+let dataset = [];
+let trainedModel = null;
+let lastEvaluation = null;
+
+const $ = id => document.getElementById(id);
+
+function setStatus(id, message, type = "") {
+  const el = $(id);
+  el.className = "status" + (type ? " " + type : "");
+  el.textContent = message;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
+/* =========================================================
+   LEITURA DO CSV
+   Aceita aspas, separadores em textos e aspas duplicadas.
+   ========================================================= */
+
+function parseCSV(text, delimiter) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let quoted = false;
+
+  text = text.replace(/^\uFEFF/, "");
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (quoted) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          quoted = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"' && field.length === 0) {
+      quoted = true;
+    } else if (ch === delimiter) {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(field);
+
+      if (row.some(value => value.trim() !== "")) {
+        rows.push(row);
+      }
+
+      row = [];
+      field = "";
+    } else {
+      field += ch;
+    }
+  }
+
+  if (quoted) {
+    throw new Error("O CSV contém aspas não fechadas. Verifique o arquivo.");
+  }
+
+  row.push(field);
+  if (row.some(value => value.trim() !== "")) rows.push(row);
+
+  return rows;
+}
+
+function countDelimiter(line, delimiter) {
+  let count = 0;
+  let quoted = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+
+    if (ch === '"') {
+      if (quoted && line[i + 1] === '"') {
+        i++;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (ch === delimiter && !quoted) {
+      count++;
+    }
+  }
+  return count;
+}
+
+function parseDataset(text) {
+  const firstLine = text.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0];
+
+  const semicolons = countDelimiter(firstLine, ";");
+  const commas = countDelimiter(firstLine, ",");
+  const delimiter = semicolons > commas ? ";" : ",";
+
+  const parsed = parseCSV(text, delimiter);
+
+  if (parsed.length < 2) {
+    throw new Error("O arquivo precisa ter cabeçalho e pelo menos uma observação.");
+  }
+
+  const headers = parsed[0].map(value =>
+    value.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  );
+
+  const textIndex = headers.indexOf("texto");
+  let classIndex = headers.indexOf("classe");
+  if (classIndex === -1) classIndex = headers.indexOf("label");
+
+  if (textIndex === -1 || classIndex === -1) {
+    throw new Error('Cabeçalhos não reconhecidos. Use exatamente "texto" e "classe".');
+  }
+
+  const result = [];
+
+  for (let i = 1; i < parsed.length; i++) {
+    const message = (parsed[i][textIndex] || "").trim();
+    const label = (parsed[i][classIndex] || "").trim();
+
+    if (message && label) {
+      result.push({ text: message, label: label });
+    }
+  }
+
+  if (result.length === 0) {
+    throw new Error("Nenhuma linha válida encontrada. Confira as colunas e o conteúdo do CSV.");
+  }
+
+  const labels = [...new Set(result.map(item => item.label))];
+
+  if (labels.length < 2) {
+    throw new Error("A base precisa conter pelo menos duas classes diferentes.");
+  }
+
+  return { rows: result, delimiter, labels };
+}
+
+function showDatasetSummary() {
+  const counts = {};
+
+  dataset.forEach(item => {
+    counts[item.label] = (counts[item.label] || 0) + 1;
+  });
+
+  $("classSummary").innerHTML =
+    '<h3>Distribuição das classes</h3>' +
+    '<div class="table-wrap"><table><thead><tr><th>Classe</th><th>Observações</th></tr></thead><tbody>' +
+    Object.keys(counts).sort().map(label =>
+      "<tr><td>" + escapeHtml(label) + "</td><td>" + counts[label] + "</td></tr>"
+    ).join("") +
+    "</tbody></table></div>";
+}
+
+function resetModel() {
+  trainedModel = null;
+  lastEvaluation = null;
+  $("metrics").innerHTML = "";
+  $("evaluation").innerHTML = "";
+  $("prediction").innerHTML = "";
+  $("saveBtn").disabled = true;
+  setStatus("trainStatus", "A base mudou. Treine novamente o modelo.");
+}
+
+$("csvFile").addEventListener("change", event => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    try {
+      const parsed = parseDataset(String(reader.result || ""));
+      dataset = parsed.rows;
+      resetModel();
+      showDatasetSummary();
+
+      setStatus(
+        "dataStatus",
+        dataset.length + " observações carregadas com sucesso. " +
+        parsed.labels.length + " classes identificadas. Separador: " +
+        (parsed.delimiter === ";" ? "ponto e vírgula (;)" : "vírgula (,)") + ".",
+        "success"
+      );
+    } catch (error) {
+      dataset = [];
+      $("classSummary").innerHTML = "";
+      resetModel();
+      setStatus("dataStatus", "Erro na importação: " + error.message, "error");
+    }
+
+    event.target.value = "";
+  };
+
+  reader.onerror = () => {
+    setStatus("dataStatus", "Não foi possível ler o arquivo selecionado.", "error");
+  };
+
+  reader.readAsText(file, "UTF-8");
+});
+
+/* =========================================================
+   BASE DEMONSTRATIVA
+   ========================================================= */
+
+const DEMO_CSV = `texto,classe
+"Olá, gostaria de confirmar minha consulta de pré-natal.",informacao_servico
+"Qual é o horário de atendimento da unidade?",informacao_servico
+"Preciso atualizar meu endereço no cadastro.",informacao_servico
+"Como faço para marcar minha próxima consulta?",agendamento
+"Quero remarcar a consulta que perdi.",agendamento
+"Posso confirmar meu horário para amanhã?",agendamento
+"Estou com dúvidas sobre as vitaminas da gestação.",orientacao_gestacional
+"Quantas semanas de gravidez eu tenho?",orientacao_gestacional
+"Gostaria de receber informações sobre alimentação na gravidez.",orientacao_gestacional
+"Estou ansiosa e gostaria de conversar com a equipe.",apoio_emocional
+"Tenho sentido medo com a chegada do bebê.",apoio_emocional
+"Estou preocupada e preciso de orientação.",apoio_emocional
+"Estou grávida e tive sangramento agora.",pedido_ajuda_imediata
+"Estou com dor forte na barriga durante a gestação.",pedido_ajuda_imediata
+"Estou com falta de ar intensa e me sinto muito mal.",pedido_ajuda_imediata
+`;
+
+$("demoBtn").addEventListener("click", () => {
+  try {
+    const parsed = parseDataset(DEMO_CSV);
+    dataset = parsed.rows;
+    resetModel();
+    showDatasetSummary();
+
+    setStatus(
+      "dataStatus",
+      dataset.length + " observações demonstrativas carregadas. " +
+      parsed.labels.length + " classes identificadas.",
+      "success"
+    );
+  } catch (error) {
+    setStatus("dataStatus", error.message, "error");
+  }
+});
+
+/* =========================================================
+   PRÉ-PROCESSAMENTO DO TEXTO
+   ========================================================= */
+
+function tokenize(text) {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(token => token.length > 1);
+}
+
+/* =========================================================
+   DIVISÃO TREINO / TESTE
+   Mantém ao menos um exemplo de cada classe no treino.
+   ========================================================= */
+
+function splitDataset(rows) {
+  const groups = {};
+
+  rows.forEach(item => {
+    if (!groups[item.label]) groups[item.label] = [];
+    groups[item.label].push(item);
+  });
+
+  const train = [];
+  const test = [];
+
+  Object.values(groups).forEach(group => {
+    const shuffled = group.slice();
+
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    if (shuffled.length < 3) {
+      train.push(...shuffled);
+      return;
+    }
+
+    const testCount = Math.max(
+      1,
+      Math.min(shuffled.length - 1, Math.floor(shuffled.length * 0.2))
+    );
+
+    test.push(...shuffled.slice(0, testCount));
+    train.push(...shuffled.slice(testCount));
+  });
+
+  return { train, test };
+}
+
+/* =========================================================
+   CLASSIFICADOR NAIVE BAYES MULTINOMIAL
+   Suavização de Laplace.
+   ========================================================= */
+
+function trainNaiveBayes(rows) {
+  const classes = {};
+  const vocabulary = new Set();
+  let totalTokens = 0;
+
+  rows.forEach(item => {
+    const label = item.label;
+
+    if (!classes[label]) {
+      classes[label] = {
+        documents: 0,
+        tokenCount: 0,
+        wordCounts: {}
+      };
+    }
+
+    classes[label].documents++;
+
+    const tokens = tokenize(item.text);
+
+    tokens.forEach(token => {
+      vocabulary.add(token);
+      classes[label].wordCounts[token] =
+        (classes[label].wordCounts[token] || 0) + 1;
+
+      classes[label].tokenCount++;
+      totalTokens++;
+    });
+  });
+
+  if (Object.keys(classes).length < 2) {
+    throw new Error("O treinamento requer pelo menos duas classes.");
+  }
+
+  return {
+    classes,
+    vocabulary: [...vocabulary],
+    vocabularySize: vocabulary.size,
+    totalDocuments: rows.length,
+    totalTokens
+  };
+}
+
+function predictWithModel(model, text) {
+  const tokens = tokenize(text);
+  const vocabSize = Math.max(1, model.vocabularySize);
+  const scores = {};
+  const totalDocs = Math.max(1, model.totalDocuments);
+
+  const labels = Object.keys(model.classes);
+
+  labels.forEach(label => {
+    const info = model.classes[label];
+    let score = Math.log(info.documents / totalDocs);
+    const denominator = info.tokenCount + vocabSize;
+
+    tokens.forEach(token => {
+      const count = info.wordCounts[token] || 0;
+      score += Math.log((count + 1) / denominator);
+    });
+
+    scores[label] = score;
+  });
+
+  const maxScore = Math.max(...Object.values(scores));
+  const expScores = {};
+
+  let sum = 0;
+  labels.forEach(label => {
+    expScores[label] = Math.exp(scores[label] - maxScore);
+    sum += expScores[label];
+  });
+
+  const probabilities = {};
+  labels.forEach(label => {
+    probabilities[label] = sum ? expScores[label] / sum : 0;
+  });
+
+  const prediction = labels.sort((a, b) =>
+    probabilities[b] - probabilities[a]
+  )[0];
+
+  return { prediction, probabilities, scores };
+}
+
+/* =========================================================
+   AVALIAÇÃO DO MODELO
+   ========================================================= */
+
+function evaluateModel(model, testRows) {
+  const labels = Object.keys(model.classes);
+  const matrix = {};
+
+  labels.forEach(actual => {
+    matrix[actual] = {};
+    labels.forEach(predicted => {
+      matrix[actual][predicted] = 0;
+    });
+  });
+
+  let correct = 0;
+
+  testRows.forEach(item => {
+    const result = predictWithModel(model, item.text);
+    const predicted = result.prediction;
+
+    if (!matrix[item.label]) {
+      matrix[item.label] = {};
+      labels.forEach(label => matrix[item.label][label] = 0);
+    }
+
+    if (matrix[item.label][predicted] === undefined) {
+      matrix[item.label][predicted] = 0;
+    }
+
+    matrix[item.label][predicted]++;
+
+    if (predicted === item.label) correct++;
+  });
+
+  return {
+    accuracy: testRows.length ? correct / testRows.length : null,
+    correct,
+    total: testRows.length,
+    labels,
+    matrix
+  };
+}
+
+function renderEvaluation(evaluation) {
+  if (!evaluation || evaluation.total === 0) {
+    $("metrics").innerHTML = "";
+    $("evaluation").innerHTML =
+      '<p class="small">A base não possui exemplos de teste suficientes para calcular a acurácia. O modelo foi treinado com todos os registros disponíveis.</p>';
+    return;
+  }
+
+  $("metrics").innerHTML =
+    '<div class="metric"><strong>' +
+    (evaluation.accuracy * 100).toFixed(1) +
+    '%</strong><span>Acurácia no conjunto de teste</span></div>' +
+    '<div class="metric"><strong>' +
+    evaluation.correct + " / " + evaluation.total +
+    '</strong><span>Previsões corretas</span></div>';
+
+  const labels = evaluation.labels;
+  let html = "<h3>Matriz de confusão</h3>";
+  html += '<p class="small">Linhas = classe real; colunas = classe prevista.</p>';
+  html += '<div class="table-wrap"><table><thead><tr><th>Real / Prevista</th>';
+
+  labels.forEach(label => {
+    html += "<th>" + escapeHtml(label) + "</th>";
+  });
+
+  html += "</tr></thead><tbody>";
+
+  labels.forEach(actual => {
+    html += "<tr><th>" + escapeHtml(actual) + "</th>";
+
+    labels.forEach(predicted => {
+      const value =
+        evaluation.matrix[actual] &&
+        evaluation.matrix[actual][predicted] !== undefined
+          ? evaluation.matrix[actual][predicted]
+          : 0;
+
+      html += "<td>" + value + "</td>";
+    });
+
+    html += "</tr>";
+  });
+
+  html += "</tbody></table></div>";
+  $("evaluation").innerHTML = html;
+}
+
+/* =========================================================
+   TREINAMENTO
+   ========================================================= */
+
+$("trainBtn").addEventListener("click", () => {
+  if (!dataset.length) {
+    setStatus("trainStatus", "Importe um CSV ou carregue a base demonstrativa antes de treinar.", "error");
+    return;
+  }
+
+  try {
+    const split = splitDataset(dataset);
+    let model;
+
+    if (split.train.length && split.test.length) {
+      model = trainNaiveBayes(split.train);
+      lastEvaluation = evaluateModel(model, split.test);
+
+      // O modelo final é treinado com todas as observações.
+      trainedModel = trainNaiveBayes(dataset);
+    } else {
+      trainedModel = trainNaiveBayes(dataset);
+      lastEvaluation = {
+        accuracy: null,
+        correct: 0,
+        total: 0,
+        labels: Object.keys(trainedModel.classes),
+        matrix: {}
+      };
+    }
+
+    const classCount = Object.keys(trainedModel.classes).length;
+
+    setStatus(
+      "trainStatus",
+      "Treinamento concluído. " + trainedModel.totalDocuments +
+      " observações utilizadas no modelo final, " + classCount +
+      " classes e " + trainedModel.vocabularySize + " palavras distintas.",
+      "success"
+    );
+
+    renderEvaluation(lastEvaluation);
+    $("saveBtn").disabled = false;
+    $("prediction").innerHTML = "";
+  } catch (error) {
+    trainedModel = null;
+    $("saveBtn").disabled = true;
+    setStatus("trainStatus", "Erro no treinamento: " + error.message, "error");
+  }
+});
+
+/* =========================================================
+   CLASSIFICAÇÃO DE NOVAS MENSAGENS
+   ========================================================= */
+
+const URGENT_LABELS = new Set([
+  "pedido_ajuda_imediata",
+  "urgencia",
+  "urgente",
+  "emergencia"
+]);
+
+function isUrgentLabel(label) {
+  return URGENT_LABELS.has(
+    String(label).toLowerCase().trim()
+  );
+}
+
+$("predictBtn").addEventListener("click", () => {
+  if (!trainedModel) {
+    $("prediction").innerHTML =
+      '<div class="warning">Treine o modelo antes de classificar mensagens.</div>';
+    return;
+  }
+
+  const text = $("messageInput").value.trim();
+
+  if (!text) {
+    $("prediction").innerHTML =
+      '<div class="warning">Digite uma mensagem para classificar.</div>';
+    return;
+  }
+
+  const result = predictWithModel(trainedModel, text);
+  const confidence = result.probabilities[result.prediction] || 0;
+
+  let html =
+    '<div class="result"><p>Classe prevista:</p><strong>' +
+    escapeHtml(result.prediction) +
+    '</strong><p>Probabilidade relativa estimada pelo modelo: ' +
+    (confidence * 100).toFixed(1) +
+    '%</p><h3>Probabilidades por classe</h3>';
+
+  Object.entries(result.probabilities)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([label, probability]) => {
+      html += "<p>" + escapeHtml(label) + ": " +
+        (probability * 100).toFixed(1) + "%</p>";
+    });
+
+  html += "</div>";
+
+  if (isUrgentLabel(result.prediction)) {
+    html +=
+      '<div class="warning"><b>Atenção:</b> o modelo atribuiu esta mensagem a uma classe de urgência. Esta previsão não confirma nem exclui uma emergência. Procure imediatamente um profissional ou serviço de saúde se houver sangramento, dor intensa, falta de ar ou outro sintoma preocupante. Não aguarde a classificação automática para buscar ajuda.</div>';
+  }
+
+  $("prediction").innerHTML = html;
+});
+
+$("clearBtn").addEventListener("click", () => {
+  $("messageInput").value = "";
+  $("prediction").innerHTML = "";
+});
+
+/* =========================================================
+   SALVAR E CARREGAR MODELO NO NAVEGADOR
+   ========================================================= */
+
+$("saveBtn").addEventListener("click", () => {
+  if (!trainedModel) return;
+
+  try {
+    localStorage.setItem(
+      "titoNaiveBayesModel",
+      JSON.stringify(trainedModel)
+    );
+    setStatus("trainStatus", "Modelo salvo no armazenamento local deste navegador.", "success");
+  } catch (error) {
+    setStatus("trainStatus", "Não foi possível salvar o modelo neste navegador.", "error");
+  }
+});
+
+$("loadBtn").addEventListener("click", () => {
+  try {
+    const saved = localStorage.getItem("titoNaiveBayesModel");
+
+    if (!saved) {
+      setStatus("trainStatus", "Nenhum modelo salvo foi encontrado neste navegador.", "error");
+      return;
+    }
+
+    const model = JSON.parse(saved);
+
+    if (!model.classes || !model.vocabulary || !model.totalDocuments) {
+      throw new Error("O arquivo salvo não contém um modelo válido.");
+    }
+
+    trainedModel = model;
+    lastEvaluation = null;
+    $("metrics").innerHTML = "";
+    $("evaluation").innerHTML =
+      '<p class="small">Modelo carregado do armazenamento local. As métricas de avaliação anteriores não foram recuperadas.</p>';
+    $("saveBtn").disabled = false;
+
+    setStatus(
+      "trainStatus",
+      "Modelo carregado. " + model.totalDocuments +
+      " observações no treinamento e " +
+      Object.keys(model.classes).length + " classes.",
+      "success"
+    );
+  } catch (error) {
+    setStatus("trainStatus", "Erro ao carregar o modelo: " + error.message, "error");
+  }
+});
+</script>
+</body>
+</html>
