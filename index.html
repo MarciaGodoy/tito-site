@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#173b73">
+<title>Laboratório de Machine Learning — Naive Bayes</title>
+<style>
+:root{color-scheme:light;--bg:#f3f6fb;--card:#fff;--ink:#17253b;--muted:#5f6e83;--blue:#214e8a;--blue2:#e8f1ff;--teal:#087f8c;--line:#d9e2ee;--green:#18794e;--red:#b42318;--amber:#fff4d6;--shadow:0 4px 18px #19365b0b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1100px;margin:auto;padding:18px}
+header{display:flex;gap:14px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin:8px 0 18px}
+h1{font-size:clamp(1.35rem,3vw,2rem);margin:0;color:var(--blue)}
+h2{font-size:1.18rem;margin:0 0 10px}
+h3{font-size:1rem;margin:16px 0 8px}
+p{margin:6px 0}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:18px;margin:0 0 16px;box-shadow:var(--shadow)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.step{border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center;background:var(--card);font-size:.88rem}
+.step.active{border:2px solid var(--blue);background:var(--blue2)}
+.step.done{border-color:var(--green)}
+button,select,input,textarea{font:inherit;border:1px solid #bdcadd;border-radius:9px;padding:9px 11px;background:#fff;color:var(--ink);max-width:100%}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #76a8ff;outline-offset:2px}
+button.primary{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:650}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.drop{border:2px dashed #b8c9de;border-radius:12px;padding:20px;text-align:center;margin:12px 0}
+.hide{display:none!important}
+.notice{padding:11px 13px;border-radius:9px;background:var(--amber);color:#684b00;margin:10px 0}
+.notice.good{background:#e6f6ed;color:#145c38}
+.notice.error{background:#fdebea;color:#8d2018}
+.small{font-size:.87rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}
+.stat{background:var(--blue2);border-radius:10px;padding:12px;overflow-wrap:anywhere}
+.stat small{display:block;color:var(--muted)}
+.stat strong{font-size:1.28rem}
+.tablewrap{overflow:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+th{background:#f5f8fc;position:sticky;top:0}
+td.num,th.num{text-align:right;white-space:nowrap}
+.matrix td,.matrix th{text-align:center;border:1px solid var(--line)}
+.matrix td{font-size:1.05rem;font-weight:700}
+.matrix small{display:block;font-size:.72rem;font-weight:400;color:var(--muted)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:16px}
+.barline{display:grid;grid-template-columns:minmax(90px,150px) 1fr 50px;gap:8px;align-items:center;margin:7px 0;font-size:.88rem}
+.bar{height:11px;background:#e1e8f1;border-radius:8px;overflow:hidden}
+.bar span{height:100%;display:block;background:var(--teal)}
+textarea{width:100%;min-height:115px;resize:vertical}
+.pill{display:inline-block;background:#e8f1ff;border-radius:20px;padding:3px 9px;margin:2px;font-size:.82rem}
+.footer{color:var(--muted);font-size:.84rem;margin:18px 0}
+.check{display:flex;gap:8px;align-items:center}
+.check input{width:auto}
+.divider{border:0;border-top:1px solid var(--line);margin:18px 0}
+@media(max-width:560px){
+ .wrap{padding:11px}
+ .card{padding:14px}
+ .steps{grid-template-columns:repeat(2,1fr)}
+ .barline{grid-template-columns:85px 1fr 40px}
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+
+<header>
+  <div>
+    <h1>🧠 Laboratório de Machine Learning</h1>
+    <p class="muted">Classificação de textos com Naive Bayes Multinomial</p>
+  </div>
+  <button id="reset">↻ Novo treinamento</button>
+</header>
+
+<div class="steps" id="steps">
+  <div class="step active">1 · Dados</div>
+  <div class="step">2 · Treinamento</div>
+  <div class="step">3 · Avaliação</div>
+  <div class="step">4 · Predição</div>
+</div>
+
+<div id="notice" class="notice hide" role="status" aria-live="polite"></div>
+
+<section class="card" id="dataCard">
+  <h2>1. Carregar os dados</h2>
+  <p>Importe um arquivo CSV ou TXT com uma coluna de texto e outra de classe. O cabeçalho recomendado é <code>texto,classe</code>.</p>
+
+  <div class="drop" id="drop">
+    <p><strong>Selecione ou arraste o arquivo</strong></p>
+    <input id="file" type="file" accept=".csv,.txt,text/csv,text/plain" class="hide">
+    <div class="row" style="justify-content:center">
+      <button id="selectFile" class="primary">Escolher CSV/TXT</button>
+      <button id="example">Carregar exemplo didático</button>
+    </div>
+    <p id="fileInfo" class="muted small">Nenhum arquivo selecionado.</p>
+  </div>
+
+  <p class="small muted">Privacidade: o processamento ocorre localmente neste navegador. O arquivo não é enviado a um servidor.</p>
+  <div id="importSummary" class="stats hide"></div>
+
+  <div id="columnConfig" class="row hide">
+    <label>Coluna de texto <select id="textCol"></select></label>
+    <label>Coluna de classe <select id="classCol"></select></label>
+    <button id="submitData" class="primary">Validar e usar dados</button>
+  </div>
+
+  <div id="preview" class="tablewrap"></div>
+</section>
+
+<section class="card hide" id="trainCard">
+  <h2>2. Configurar e treinar</h2>
+  <div class="stats" id="dataStats"></div>
+
+  <p>O modelo será avaliado em uma amostra de teste separada antes de ser ajustado novamente com todos os dados válidos para classificar novas mensagens.</p>
+
+  <div class="row">
+    <label>Proporção para teste
+      <select id="testRatio">
+        <option value="0.2" selected>20% dos dados</option>
+        <option value="0.25">25% dos dados</option>
+        <option value="0.3">30% dos dados</option>
+      </select>
+    </label>
+
+    <label class="check">
+      <input id="saveModel" type="checkbox" checked>
+      Salvar modelo neste navegador
+    </label>
+  </div>
+
+  <p class="small muted">A divisão é estratificada por classe e usa uma semente fixa para tornar a demonstração reproduzível. Classes com poucos exemplos podem ter estimativas instáveis.</p>
+
+  <button id="train" class="primary">🧠 Treinar e avaliar modelo</button>
+  <div id="progress" class="notice hide"></div>
+</section>
+
+<section class="card hide" id="evalCard">
+  <h2>3. Avaliação do modelo</h2>
+  <div id="metrics" class="stats"></div>
+
+  <h3>Matriz de confusão</h3>
+  <p class="small muted">Linhas = classe real; colunas = classe prevista. A diagonal representa as classificações corretas.</p>
+  <div id="confusion" class="tablewrap"></div>
+
+  <h3>Métricas por classe</h3>
+  <div id="perClass" class="tablewrap"></div>
+
+  <div class="two">
+    <div>
+      <h3>Distribuição das classes</h3>
+      <div id="distribution"></div>
+    </div>
+    <div>
+      <h3>Palavras mais frequentes por classe (treino)</h3>
+      <div id="topWords"></div>
+    </div>
+  </div>
+
+  <h3>Previsões no conjunto de teste</h3>
+  <p class="small muted">Esta tabela permite inspecionar acertos e erros individuais no conjunto reservado para avaliação.</p>
+  <div id="testPredictions" class="tablewrap"></div>
+
+  <div class="row" style="margin-top:12px">
+    <button id="downloadPredictions">Baixar previsões de teste (CSV)</button>
+    <button id="downloadMetrics">Baixar métricas (CSV)</button>
+  </div>
+</section>
+
+<section class="card hide" id="predictCard">
+  <h2>4. Classificar uma nova mensagem</h2>
+  <p>Digite um texto para obter a classe prevista e as probabilidades calculadas pelo modelo.</p>
+
+  <textarea id="newText" placeholder="Ex.: Estou com dor forte e sangramento."></textarea>
+
+  <div class="row" style="margin-top:9px">
+    <button id="classify" class="primary">🔎 Classificar texto</button>
+    <button id="clearText">Limpar</button>
+  </div>
+
+  <div id="prediction" class="hide">
+    <div id="predictionResult" class="notice good"></div>
+    <h3>Probabilidades por classe</h3>
+    <div id="probabilities"></div>
+    <h3>Palavras conhecidas que contribuíram para a previsão</h3>
+    <div id="explanation"></div>
+  </div>
+
+  <h3>Histórico desta sessão</h3>
+  <div class="tablewrap" id="history"></div>
+  <button id="clearHistory" class="hide">Limpar histórico</button>
+
+  <p class="small muted">Importante: a saída é uma classificação estatística baseada nos rótulos fornecidos. Não é diagnóstico, triagem clínica validada nem recomendação médica. Se o conjunto incluir mensagens de urgência, o resultado não deve substituir avaliação profissional.</p>
+</section>
+
+<section class="card">
+  <h2>Como funciona o experimento?</h2>
+
+  <div class="two">
+    <div>
+      <h3>1. Dados rotulados</h3>
+      <p>O algoritmo recebe mensagens associadas a classes previamente definidas.</p>
+
+      <h3>2. Treinamento</h3>
+      <p>O Naive Bayes Multinomial estima a frequência das palavras em cada classe e aplica suavização de Laplace para lidar com palavras pouco frequentes.</p>
+    </div>
+
+    <div>
+      <h3>3. Avaliação</h3>
+      <p>Uma parte dos exemplos é reservada para teste. Acurácia, precisão, recall e F1 são calculados com base nas previsões desse conjunto.</p>
+
+      <h3>4. Nova classificação</h3>
+      <p>Após a avaliação, o modelo é treinado com todos os registros válidos e pode classificar novas mensagens.</p>
+    </div>
+  </div>
+
+  <p class="small muted">As probabilidades são estimativas internas do modelo e não devem ser interpretadas como confiança clínica calibrada. O desempenho depende da qualidade, representatividade e equilíbrio dos dados.</p>
+</section>
+
+<p class="footer">Laboratório educacional · arquivo único HTML · JavaScript executado no navegador · sem bibliotecas externas.</p>
+
+</main>
+
+<script>
+'use strict';
+
+const $ = s => document.querySelector(s);
+
+let rawText = null;
+let rawName = '';
+let headers = [];
+let rows = [];
+let records = [];
+let model = null;
+let evalModel = null;
+let testRows = [];
+let history = [];
+
+const colors = [
+  '#214e8a',
+  '#087f8c',
+  '#8a4fc4',
+  '#b45309',
+  '#b42318',
+  '#64748b',
+  '#0f766e',
+  '#be185d'
+];
+
+function escapeHTML(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
+}
+
+function pct(x) {
+  return Number.isFinite(x)
+    ? (100 * x).toLocaleString('pt-BR', {maximumFractionDigits: 1}) + '%'
+    : '—';
+}
+
+function notify(msg, type = '') {
+  const el = $('#notice');
+  el.textContent = msg;
+  el.className = 'notice' + (type ? ' ' + type : '');
+  el.classList.toggle('hide', !msg);
+}
+
+function steps(n) {
+  $('#steps').innerHTML = [
+    ['1 · Dados', 1],
+    ['2 · Treinamento', 2],
+    ['3 · Avaliação', 3],
+    ['4 · Predição', 4]
+  ].map(([t, i]) =>
+    `<div class="step ${i < n ? 'done' : i === n ? 'active' : ''}">${i < n ? '✓ ' : ''}${t}</div>`
+  ).join('');
+}
+
+function parseCSV(input) {
+  let text = input.replace(/^\uFEFF/, '').replace(/\u0000/g, '');
+  const first = (text.split(/\r?\n/, 1)[0] || '');
+
+  const candidates = [',', ';', '\t'];
+
+  let delim = candidates.map(d => ({
+    d,
+    n: (first.match(new RegExp(d === '\t' ? '\\t' : d === ';' ? ';' : ',', 'g')) || []).length
+  })).sort((a, b) => b.n - a.n)[0].d;
+
+  const out = [];
+  let row = [];
+  let field = '';
+  let quoted = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (quoted) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          quoted = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === delim) {
+      row.push(field);
+      field = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(field);
+      if (row.some(v => v.trim() !== '')) out.push(row);
+      row = [];
+      field = '';
+    } else {
+      field += ch;
+    }
+  }
+
+  row.push(field);
+  if (row.some(v => v.trim() !== '')) out.push(row);
+
+  return {rows: out, delimiter: delim};
+}
+
+function fixMojibake(s) {
+  if (!/[ÃÂâ€]/.test(s)) return s;
+
+  try {
+    const bytes = Uint8Array.from([...s].map(c => c.charCodeAt(0) & 255));
+    const decoded = new TextDecoder('utf-8', {fatal: false}).decode(bytes);
+
+    return (decoded.match(/�/g) || []).length < (s.match(/�/g) || []).length
+      ? decoded
+      : decoded.includes('�') ? s : decoded;
+  } catch (e) {
+    return s;
+  }
+}
+
+function avgLen(i) {
+  return rows.reduce((a, r) => a + (r[i] || '').length, 0) / Math.max(1, rows.length);
+}
+
+function uniqRatio(i) {
+  return new Set(rows.map(r => r[i])).size / Math.max(1, rows.length);
+}
+
+function loadText(text, name, size) {
+  rawText = text;
+  rawName = name;
+
+  $('#fileInfo').textContent =
+    `${name} · ${(size / 1024).toLocaleString('pt-BR', {maximumFractionDigits: 1})} KB`;
+
+  notify('');
+
+  const parsed = parseCSV(text);
+  const count = Math.max(0, parsed.rows.length - 1);
+
+  $('#fileInfo').textContent +=
+    ` · ${count.toLocaleString('pt-BR')} linhas após o cabeçalho`;
+
+  if (parsed.rows.length < 2) {
+    notify('O arquivo não contém cabeçalho e registros suficientes.', 'error');
+    return;
+  }
+
+  headers = parsed.rows[0].map((h, i) => fixMojibake(h.trim()) || `coluna_${i + 1}`);
+
+  rows = parsed.rows.slice(1).map(r =>
+    headers.map((_, i) => fixMojibake((r[i] ?? '').trim()))
+  ).filter(r => r.some(Boolean));
+
+  const norm = headers.map(h =>
+    h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  );
+
+  let ti = norm.findIndex(h =>
+    /^(texto|text|mensagem|message|frase|review|comentario|descricao|conteudo)$/.test(h) ||
+    /(texto|mensagem|comentario|descricao)/.test(h)
+  );
+
+  let ci = norm.findIndex(h =>
+    /^(classe|class|rotulo|label|categoria|category|sentimento|sentiment|target|alvo)$/.test(h) ||
+    /(^|_)(classe|rotulo|categoria|sentimento)$/.test(h)
+  );
+
+  if (ti < 0) {
+    ti = headers.map((_, i) => i).sort((a, b) => avgLen(b) - avgLen(a))[0] ?? 0;
+  }
+
+  if (ci < 0) {
+    ci = headers.map((_, i) => i)
+      .filter(i => i !== ti)
+      .sort((a, b) => uniqRatio(a) - uniqRatio(b))[0] ?? (ti === 0 ? 1 : 0);
+  }
+
+  $('#textCol').innerHTML = headers.map((h, i) =>
+    `<option value="${i}">${escapeHTML(h)}</option>`
+  ).join('');
+
+  $('#classCol').innerHTML = headers.map((h, i) =>
+    `<option value="${i}">${escapeHTML(h)}</option>`
+  ).join('');
+
+  $('#textCol').value = ti;
+  $('#classCol').value = ci;
+
+  $('#columnConfig').classList.remove('hide');
+  $('#importSummary').classList.remove('hide');
+
+  $('#importSummary').innerHTML = [
+    ['Linhas lidas', rows.length],
+    ['Colunas', headers.length],
+    ['Separador', parsed.delimiter === '\t' ? 'TAB' : parsed.delimiter],
+    ['Arquivo', rawName]
+  ].map(([k, v]) =>
+    `<div class="stat"><small>${k}</small><strong>${escapeHTML(v)}</strong></div>`
+  ).join('');
+
+  renderPreview();
+}
+
+function renderPreview() {
+  const ti = +$('#textCol').value;
+  const ci = +$('#classCol').value;
+
+  $('#preview').innerHTML = `
+    <p class="small muted">Pré
