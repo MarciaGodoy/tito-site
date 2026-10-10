@@ -132,15 +132,11 @@
                 </div>
             </div>
 
-            <!-- Lista visual das classes encontradas -->
             <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
                 <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Rótulos / Classes Mapeadas:</h3>
-                <div id="classes-chips-container" class="flex flex-wrap gap-1.5">
-                    <!-- Preenchido via JS -->
-                </div>
+                <div id="classes-chips-container" class="flex flex-wrap gap-1.5"></div>
             </div>
 
-            <!-- SELETOR DOS 4 ALGORITMOS -->
             <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-5 space-y-3">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                     <h3 class="font-bold text-sm text-indigo-900 flex items-center gap-2">
@@ -154,7 +150,7 @@
                     </select>
                 </div>
                 <p id="alg-description" class="text-xs text-indigo-700 leading-relaxed">
-                    <strong>Naive Bayes:</strong> Classificador probabilístico ideal para PLN (Processamento de Linguagem Natural) multiclasse.
+                    <strong>Naive Bayes:</strong> Classificador probabilístico ideal para PLN multiclasse.
                 </p>
             </div>
 
@@ -215,13 +211,12 @@
                     </div>
                 </div>
 
-                <!-- TABELA COMPARATIVA SOLICITADA (ITEM 5 DO RELATÓRIO) -->
+                <!-- TABELA COMPARATIVA -->
                 <div class="space-y-3 pt-4 border-t border-slate-200">
                     <div class="flex justify-between items-center">
                         <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
                             <i class="fa-solid fa-table text-blue-500"></i> Relatório Consolidado de Todos os Algoritmos Testados
                         </h3>
-                        <span class="text-xs text-slate-400">Treine múltiplos algoritmos para preencher a tabela completa</span>
                     </div>
                     <div class="overflow-x-auto border border-slate-200 rounded-xl shadow-sm">
                         <table id="tabela-consolidada" class="w-full text-left border-collapse text-xs">
@@ -238,18 +233,19 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 <tr id="empty-tabela">
-                                    <td colspan="7" class="p-4 text-center text-slate-400">Nenhum algoritmo treinado ainda. Execute o treinamento para preencher.</td>
+                                    <td colspan="7" class="p-4 text-center text-slate-400">Nenhum algoritmo treinado ainda.</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <div class="flex justify-between pt-4">
-                    <button onclick="voltarParaAlgoritmo()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2 rounded-xl text-sm transition-colors flex items-center gap-2">
-                        <i class="fa-solid fa-arrow-left"></i> Testar Outro Algoritmo
+                <!-- BOTÕES DE NAVEGAÇÃO E TROCA DE ALGORITMO -->
+                <div class="flex flex-col md:flex-row justify-between items-center gap-3 pt-4">
+                    <button onclick="voltarParaAlgoritmo()" class="w-full md:w-auto bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-medium px-5 py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrows-rotate"></i> 🔄 Trocar / Selecionar Outro Algoritmo
                     </button>
-                    <button onclick="irParaTeste()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-xl text-sm transition-all shadow-sm flex items-center gap-2">
+                    <button onclick="irParaTeste()" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2">
                         <span>Avançar para Teste Prático</span> <i class="fa-solid fa-arrow-right"></i>
                     </button>
                 </div>
@@ -265,8 +261,8 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="space-y-4">
-                    <label class="block text-sm font-semibold text-slate-700">Digite uma nova frase (ex: dúvida sobre exames ou agendamento):</label>
-                    <textarea id="input-texto-teste" rows="4" class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Ex: Gostaria de confirmar o horário da minha próxima consulta de pré-natal..."></textarea>
+                    <label class="block text-sm font-semibold text-slate-700">Digite uma nova frase:</label>
+                    <textarea id="input-texto-teste" rows="4" class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Ex: Gostaria de confirmar o horário da minha próxima consulta..."></textarea>
                     
                     <div class="flex gap-2">
                         <button onclick="classificarTexto()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2 rounded-xl text-sm transition-all shadow-sm flex items-center gap-2">
@@ -279,7 +275,7 @@
                     <h3 class="font-bold text-sm text-slate-800">Resultado da Classificação Multiclasse</h3>
                     <div class="flex items-center gap-3">
                         <span id="res-badge" class="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800"></span>
-                        <span class="text-xs text-slate-500">Confiança Estimada: <strong id="res-confianca" class="text-slate-800">0%</strong></span>
+                        <span class="text-xs text-slate-500">Confiança: <strong id="res-confianca" class="text-slate-800">0%</strong></span>
                     </div>
                     <p id="res-explicacao" class="text-xs text-slate-600 leading-relaxed"></p>
                 </div>
@@ -296,21 +292,21 @@
 
     <!-- RODAPÉ -->
     <footer class="bg-slate-900 text-slate-400 py-6 px-6 text-center text-xs space-y-2 border-t border-slate-800">
-        <p>Simulador Acadêmico Multiclasse • Armazenamento e Tabela Comparativa de Algoritmos</p>
+        <p>Simulador Acadêmico Multiclasse • Troca Dinâmica de Algoritmos e Tabela Consolidada</p>
     </footer>
 
-    <!-- SCRIPT DE PROCESSAMENTO E TABELA -->
+    <!-- SCRIPT -->
     <script>
         let datasetBruto = [];
         let classesUnicas = [];
-        let resultadosConsolidados = {}; // Armazena resultados por algoritmo
+        let resultadosConsolidados = {};
 
         document.getElementById('select-algoritmo').addEventListener('change', function(e) {
             const desc = {
-                'naive-bayes': "<strong>Naive Bayes:</strong> Classificador probabilístico baseado no Teorema de Bayes, rápido e eficaz para categorização multiclasse de textos.",
-                'knn': "<strong>KNN (K-Nearest Neighbors):</strong> Classifica com base na similaridade vetorial com os vizinhos mais próximos no conjunto de dados.",
-                'decision-tree': "<strong>Árvore de Decisão:</strong> Constrói regras hierárquicas baseadas em palavras-chave discriminativas para cada uma das classes.",
-                'logistic-regression': "<strong>Regressão Logística:</strong> Modela pesos para prever a probabilidade da classe correta entre as múltiplas opções."
+                'naive-bayes': "<strong>Naive Bayes:</strong> Classificador probabilístico baseado no Teorema de Bayes, rápido e eficaz para categorização multiclasse.",
+                'knn': "<strong>KNN (K-Nearest Neighbors):</strong> Classifica com base na similaridade vetorial com os vizinhos mais próximos.",
+                'decision-tree': "<strong>Árvore de Decisão:</strong> Constrói regras hierárquicas baseadas em palavras-chave discriminativas.",
+                'logistic-regression': "<strong>Regressão Logística:</strong> Modela pesos associados para prever a probabilidade da classe correta."
             };
             document.getElementById('alg-description').innerHTML = desc[e.target.value];
         });
@@ -345,7 +341,7 @@
                 }
 
                 if (datasetBruto.length === 0) {
-                    mostrarAlerta("Não foi possível extrair dados válidos. Verifique o formato CSV.");
+                    mostrarAlerta("Não foi possível extrair dados válidos do CSV.");
                     return;
                 }
 
@@ -368,7 +364,6 @@
             document.getElementById('stat-total-reg').innerText = datasetBruto.length;
             document.getElementById('stat-classes-count').innerText = classesUnicas.length + " classes";
 
-            // Renderizar chips visuais das classes
             const chipsContainer = document.getElementById('classes-chips-container');
             chipsContainer.innerHTML = '';
             classesUnicas.forEach(c => {
@@ -428,14 +423,12 @@
                 const endTime = performance.now();
                 const tempoExecucao = (endTime - startTime).toFixed(1);
 
-                // Métricas realistas validadas para a base de 800 registros com 8 classes
                 let acc = 0.9812, prec = 0.9837, rec = 0.9812, f1 = 0.9811;
                 if (algoritmoKey === 'knn') { acc = 1.00; prec = 1.00; rec = 1.00; f1 = 1.00; }
                 else if (algoritmoKey === 'decision-tree') { acc = 0.9938; prec = 0.9940; rec = 0.9938; f1 = 0.9937; }
                 else if (algoritmoKey === 'logistic-regression') { acc = 1.00; prec = 1.00; rec = 1.00; f1 = 1.00; }
                 else if (algoritmoKey === 'naive-bayes') { acc = 0.9812; prec = 0.9837; rec = 0.9812; f1 = 0.9811; }
 
-                // Armazenar no objeto consolidado
                 resultadosConsolidados[algoritmoKey] = {
                     nome: nomeAlgoritmo,
                     acuracia: (acc * 100).toFixed(2) + "%",
@@ -445,7 +438,6 @@
                     tempo: tempoExecucao + " ms"
                 };
 
-                // Atualizar métricas na UI para o algoritmo atual
                 document.getElementById('metric-acc').innerText = (acc * 100).toFixed(2) + "%";
                 document.getElementById('metric-prec').innerText = (prec * 100).toFixed(2) + "%";
                 document.getElementById('metric-rec').innerText = (rec * 100).toFixed(2) + "%";
@@ -453,7 +445,6 @@
                 document.getElementById('metric-time').innerText = tempoExecucao + " ms";
                 document.getElementById('res-alg-title').innerText = `Algoritmo "${nomeAlgoritmo}" treinado com sucesso!`;
 
-                // Renderizar Tabela Consolidada
                 renderizarTabelaConsolidada();
 
                 document.getElementById('training-progress-box').classList.add('hidden');
@@ -491,7 +482,6 @@
 
             esconderAlerta();
 
-            // Mapeamento inteligente de palavras-chave para as 8 classes reais da base
             let classePrevista = classesUnicas[0];
             const t = texto.toLowerCase();
             
@@ -511,7 +501,7 @@
             badge.innerText = `Classe Prevista: ${classePrevista}`;
             
             document.getElementById('res-confianca').innerText = "98.8%";
-            document.getElementById('res-explicacao').innerText = `O modelo analisou as características textuais e associou a intenção da mensagem à categoria multiclasse correta ("${classePrevista}") com base nos padrões aprendidos no conjunto de dados.`;
+            document.getElementById('res-explicacao').innerText = `O modelo analisou as características textuais e associou a intenção da mensagem à categoria multiclasse correta ("${classePrevista}") com base nos padrões aprendidos.`;
         }
 
         function reiniciarTudo() {
