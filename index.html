@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Avançado de Machine Learning - Multiclasse</title>
+    <title>Simulador Acadêmico de Machine Learning - Multiclasse</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- FontAwesome Icons -->
@@ -84,7 +84,7 @@
             </div>
 
             <p class="text-sm text-slate-600 leading-relaxed">
-                Selecione o arquivo CSV contendo os dados (como <code>Teste_IA_PT_2.csv</code> com as 800 observações e colunas <code>texto</code> e <code>classe</code>).
+                Selecione o arquivo CSV contendo os dados (como <code>Teste_IA_PT_2.csv</code>). O sistema fará a leitura automática das colunas de texto e classe.
             </p>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
@@ -95,7 +95,7 @@
                             <i class="fa-solid fa-cloud-arrow-up"></i>
                         </div>
                         <p class="text-sm font-semibold text-slate-700">Arraste seu arquivo .csv ou clique aqui</p>
-                        <p class="text-xs text-slate-400">Compatível com arquivos multiclasse estruturados</p>
+                        <p class="text-xs text-slate-400">Compatível com separadores por vírgula ou ponto e vírgula</p>
                     </div>
                 </div>
 
@@ -112,7 +112,7 @@
                 </div>
             </div>
 
-            <!-- EXIBIÇÃO DOS 3 PRIMEIROS REGISTROS NA ETAPA 1 -->
+            <!-- EXIBIÇÃO DOS 3 PRIMEIROS REGISTROS -->
             <div id="preview-container" class="hidden space-y-3 pt-4 border-t border-slate-100">
                 <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                     <i class="fa-solid fa-table text-indigo-600"></i> Amostra: Os 3 Primeiros Registros Submetidos
@@ -147,7 +147,6 @@
                 </div>
             </div>
 
-            <!-- CARACTERÍSTICAS DOS DADOS -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-2xs">
                     <span class="text-[11px] text-slate-500 uppercase font-semibold">Total de Observações</span>
@@ -162,4 +161,203 @@
                     <p id="stat-classes-count" class="text-xl font-bold text-blue-600 mt-1">0 classes</p>
                 </div>
                 <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                    <span class="text-[11px] text-slate-50
+                    <span class="text-[11px] text-slate-500 uppercase font-semibold">Amostras Treino/Teste</span>
+                    <p id="stat-split-abs" class="text-sm font-bold text-slate-700 mt-2">0 / 0</p>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 shadow-2xs">
+                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Rótulos / Classes Mapeadas:</h3>
+                <div id="classes-chips-container" class="flex flex-wrap gap-1.5"></div>
+            </div>
+
+            <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 space-y-4 shadow-2xs">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                    <h3 class="font-bold text-sm text-indigo-900 flex items-center gap-2">
+                        <i class="fa-solid fa-robot text-indigo-600"></i> Selecione o Algoritmo:
+                    </h3>
+                    <select id="select-algoritmo" class="text-xs p-3 border border-indigo-200 rounded-xl bg-white font-semibold text-indigo-900 w-full md:w-80 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="naive-bayes">Naive Bayes</option>
+                        <option value="knn">KNN (K-Nearest Neighbors)</option>
+                        <option value="decision-tree">Árvore de Decisão</option>
+                        <option value="logistic-regression">Regressão Logística</option>
+                    </select>
+                </div>
+                <p id="alg-description" class="text-xs text-indigo-700 leading-relaxed">
+                    <strong>Naive Bayes:</strong> Classificador probabilístico baseado no Teorema de Bayes, ideal para PLN multiclasse.
+                </p>
+            </div>
+
+            <div class="flex justify-between pt-4">
+                <button onclick="voltarParaDados()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-5 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2 cursor-pointer shadow-2xs">
+                    <i class="fa-solid fa-arrow-left"></i> Voltar
+                </button>
+                <button onclick="iniciarTreinamento()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-brain"></i> Executar Treinamento e Avaliação
+                </button>
+            </div>
+        </section>
+
+        <!-- ETAPA 3: AVALIAÇÃO E MATRIZ -->
+        <section id="section-treinamento" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-3">
+                    <span class="bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full text-xs">Etapa 3 de 4</span>
+                    <h2 class="text-base font-bold text-slate-800">Avaliação do Modelo, Matriz de Confusão & Relatório</h2>
+                </div>
+                <button onclick="gerarRelatorioPDF()" class="bg-rose-600 hover:bg-rose-700 text-white font-medium px-4 py-2 rounded-xl text-xs transition-all shadow-sm flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-file-pdf"></i> Baixar Relatório em PDF
+                </button>
+            </div>
+
+            <div id="training-progress-box" class="space-y-3 py-8 text-center">
+                <div class="inline-block animate-spin text-3xl text-indigo-600 mb-2">
+                    <i class="fa-solid fa-circle-notch"></i>
+                </div>
+                <h3 id="training-status-text" class="font-semibold text-slate-700 text-sm">Treinando modelo multiclasse (validação 80/20)...</h3>
+            </div>
+
+            <div id="training-results" class="hidden space-y-6">
+                <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-center gap-3 shadow-2xs">
+                    <i class="fa-solid fa-circle-check text-emerald-600 text-xl"></i>
+                    <div>
+                        <h4 id="res-alg-title" class="font-bold text-sm">Treinamento Concluído com Sucesso!</h4>
+                        <p class="text-xs text-emerald-700">Métricas e matriz de confusão calculadas a partir do conjunto de teste.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
+                        <span class="text-[10px] text-slate-500 uppercase font-semibold">ACURÁCIA</span>
+                        <p id="metric-acc" class="text-lg font-bold text-indigo-600 mt-1">0%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
+                        <span class="text-[10px] text-slate-500 uppercase font-semibold">PRECISÃO</span>
+                        <p id="metric-prec" class="text-lg font-bold text-blue-600 mt-1">0%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
+                        <span class="text-[10px] text-slate-500 uppercase font-semibold">RECALL</span>
+                        <p id="metric-rec" class="text-lg font-bold text-violet-600 mt-1">0%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
+                        <span class="text-[10px] text-slate-500 uppercase font-semibold">F1-ESCORE</span>
+                        <p id="metric-f1" class="text-lg font-bold text-emerald-600 mt-1">0%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
+                        <span class="text-[10px] text-slate-500 uppercase font-semibold">ACERTOS / ERROS</span>
+                        <p id="metric-hits-errors" class="text-sm font-bold text-slate-700 mt-1.5">0 / 0</p>
+                    </div>
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
+                        <span class="text-[10px] text-slate-500 uppercase font-semibold">TEMPO DE TREINO</span>
+                        <p id="metric-time" class="text-sm font-bold text-amber-600 mt-1.5">0 ms</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-table-cells text-indigo-600"></i> Matriz de Confusão (Validação Multiclasse)
+                    </h3>
+                    <div id="confusion-matrix-box" class="overflow-x-auto border border-slate-200 rounded-2xl p-4 bg-slate-50"></div>
+                </div>
+
+                <div class="space-y-3 pt-4 border-t border-slate-100">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-table text-indigo-600"></i> Relatório Consolidado (Aluna: Marcia Regina Godoy)
+                        </h3>
+                    </div>
+                    <div class="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs">
+                        <table id="tabela-consolidada" class="w-full text-left border-collapse text-xs">
+                            <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
+                                <tr>
+                                    <th class="p-3.5 font-semibold">Algoritmo</th>
+                                    <th class="p-3.5 font-semibold">Acurácia</th>
+                                    <th class="p-3.5 font-semibold">Precisão</th>
+                                    <th class="p-3.5 font-semibold">Recall</th>
+                                    <th class="p-3.5 font-semibold">F1-Score</th>
+                                    <th class="p-3.5 font-semibold">Tempo</th>
+                                    <th class="p-3.5 font-semibold">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white">
+                                <tr id="empty-tabela">
+                                    <td colspan="7" class="p-6 text-center text-slate-400">Nenhum algoritmo treinado ainda.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row justify-between items-center gap-3 pt-4">
+                    <button onclick="voltarParaAlgoritmo()" class="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-5 py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs">
+                        <i class="fa-solid fa-arrows-rotate"></i> 🔄 Trocar / Selecionar Outro Algoritmo
+                    </button>
+                    <div class="flex gap-3 w-full md:w-auto">
+                        <button onclick="voltarParaDados()" class="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs">
+                            <i class="fa-solid fa-arrow-left"></i> Voltar aos Dados
+                        </button>
+                        <button onclick="irParaTeste()" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer">
+                            <span>Avançar para Teste Prático</span> <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ETAPA 4: TESTE PRÁTICO -->
+        <section id="section-teste" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-3">
+                    <span class="bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full text-xs">Etapa 4 de 4</span>
+                    <h2 class="text-base font-bold text-slate-800">Testar o Modelo com uma Nova Mensagem & Histórico</h2>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <label class="block text-sm font-semibold text-slate-700">Digite uma nova frase para teste:</label>
+                    <textarea id="input-texto-teste" rows="3" class="w-full p-4 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-2xs bg-slate-50" placeholder="Ex: Gostaria de confirmar o horário da minha próxima consulta..."></textarea>
+                    
+                    <div class="flex gap-2">
+                        <button onclick="classificarTexto()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer">
+                            <i class="fa-solid fa-wand-magic"></i> Classificar Mensagem
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Desempenho da Sessão de Testes</h4>
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                            <div class="bg-white p-2.5 rounded-xl border">Testes: <strong id="test-count" class="text-slate-800">0</strong></div>
+                            <div class="bg-white p-2.5 rounded-xl border">Acertos estimados: <strong id="test-hits" class="text-emerald-600">0</strong></div>
+                            <div class="bg-white p-2.5 rounded-xl border">Erros estimados: <strong id="test-errors" class="text-rose-600">0</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="resultado-container" class="hidden bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4 shadow-2xs flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <h3 class="font-bold text-sm text-slate-800">Resultado da Classificação</h3>
+                        <div class="flex items-center gap-3">
+                            <span id="res-badge" class="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800"></span>
+                            <span class="text-xs text-slate-500">Confiança da Previsão: <strong id="res-confianca" class="text-indigo-600">0%</strong></span>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1">
+                            <strong class="text-indigo-900 block font-semibold">Explicação do Resultado:</strong>
+                            <p id="res-explicacao">O modelo analisou os termos presentes no texto e determinou a classe correspondente.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3 pt-6 border-t border-slate-100">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> Histórico de Classificações Realizadas
+                    </h3>
+                    <button onclick="limparHistorico()" class="text-xs text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1 cursor-pointer">
+                        <i class="fa-solid fa-trash-can"></i> Limpar Histórico
+                    </button>
+                </div>
+                <div class="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs">
+                    <table id="historico-table" class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate
