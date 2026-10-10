@@ -201,59 +201,175 @@ function escapeHtml(s){
  return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
-function parseCSVLine(line){
- const out=[]; let cur="", q=false;
- for(let i=0;i<line.length;i++){
-   const ch=line[i];
-   if(ch==='"'){ if(q && line[i+1]==='"'){cur+='"';i++;} else q=!q; }
-   else if(ch===',' && !q){out.push(cur.trim());cur="";}
-   else cur+=ch;
- }
- out.push(cur.trim());
- return out;
+
+  function parseCSV(content, delimiter = ",") {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let quoted = false;
+
+  content = content.replace(/^\uFEFF/, "");
+
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i];
+
+    if (ch === '"') {
+      if (quoted && content[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (ch === delimiter && !quoted) {
+      row.push(field.trim());
+      field = "";
+    } else if ((ch === "\n" || ch === "\r") && !quoted) {
+      if (ch === "\r" && content[i + 1] === "\n") i++;
+
+      row.push(field.trim());
+
+      if (row.some(value => value !== "")) {
+        rows.push(row);
+      }
+
+      row = [];
+      field = "";
+    } else {
+      field += ch;
+    }
+  }
+
+  row.push(field.trim());
+
+  if (row.some(value => value !== "")) {
+    rows.push(row);
+  }
+
+  if (quoted) {
+    throw new Error("Campo entre aspas não foi fechado.");
+  }
+
+  return rows;
 }
 
+function parseCSVLine(line) {
+  return parseCSV(line)[0] || [];
+}
+
+function parseDataset() {
+  const content = document.getElementById("dataset").value;
+
+  if (!content.trim()) {
+    alert("Importe um CSV ou cole os dados antes de continuar.");
+    return false;
+  }
+
+  const firstLine = content.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0];
+  const delimiter =
+    (firstLine.match(/;/g) || []).length >
+    (firstLine.match(/,/g) || []).length ? ";" : ",";
+
+  let rows;
+
+  try {
+    rows = parseCSV(content, delimiter);
+  } catch (error) {
+    alert("Erro ao interpretar CSV: " + error.message);
+    return false;
+  }
+
+  if (rows.length < 3) {
+    alert("O CSV precisa ter cabeçalho e pelo menos duas observações.");
+    return false;
+  }
+
+  const header = rows[0].map(value =>
+    value.replace(/^\uFEFF/, "").trim().toLowerCase()
+  );
+
+  const textIndex = header.indexOf("texto");
+  let labelIndex = header.indexOf("classe");
+
+  if (labelIndex === -1) {
+    labelIndex = header.indexOf("label");
+  }
+
+  if (textIndex === -1 || labelIndex === -1) {
+    alert("O cabeçalho precisa conter as colunas texto e classe (ou label).");
+    return false;
+  }
+
+  const newDataset = [];
+  let invalidRows = 0;
+
+  for (let i = 1; i < rows.length; i++) {
+    const text = (rows[i][textIndex] || "").trim();
+    const label = (rows[i][labelIndex] || "").trim();
+
+    if (!text || !label) {
+      invalidRows++;
+      continue;
+    }
+
+    newDataset.push({ text, label });
+  }
+
+  const classes = [...new Set(newDataset.map(item => item.label))];
+
+  if (newDataset.length < 2 || classes.length < 2) {
+    alert("São necessárias pelo menos duas observações e duas classes.");
+    return false;
+  }
+
+  dataset = newDataset;
+
+  document.getElementById("dataStatus").innerHTML =
+    "<b>" + dataset.length.toLocaleString("pt-BR") +
+    "</b> observações carregadas · <b>" + classes.length +
+    "</b> classes: " + classes.map(escapeHtml).join(", ") +
+    (invalidRows ? " · " + invalidRows + " linhas ignoradas" : "");
+
+  return true;
+}
 
 function importCSVFile(event) {
   const file = event.target.files[0];
   if (!file) return;
 
+  const status = document.getElementById("dataStatus");
+
+  status.textContent =
+    "Lendo " + file.name + " (" +
+    (file.size / (1024 * 1024)).toFixed(2) + " MB)...";
+
   const reader = new FileReader();
 
   reader.onload = function(e) {
-    document.getElementById("dataset").value = e.target.result;
+    try {
+      document.getElementById("dataset").value = e.target.result;
 
-    const ok = parseDataset();
-
-    if (ok) {
-      alert(
-        "Arquivo importado: " + file.name +
-        "\nObservações carregadas: " + dataset.length
-      );
+      if (parseDataset()) {
+        alert(
+          "Arquivo importado: " + file.name +
+          "\nObservações carregadas: " + dataset.length
+        );
+      }
+    } catch (error) {
+      status.textContent = "Falha ao processar o arquivo.";
+      alert("Erro na importação: " + error.message);
+    } finally {
+      event.target.value = "";
     }
-
-    event.target.value = "";
   };
 
   reader.onerror = function() {
-    alert("Não foi possível ler o arquivo CSV.");
+    status.textContent = "Não foi possível ler o arquivo.";
+    alert("Erro ao ler o CSV.");
+    event.target.value = "";
   };
 
   reader.readAsText(file, "UTF-8");
-}
-
-  
-function parseDataset(){
- const lines=document.getElementById("dataset").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
- if(lines.length<3){alert("Forneça pelo menos 2 observações além do cabeçalho.");return false;}
- let start=0, first=parseCSVLine(lines[0]).map(x=>x.toLowerCase());
- if(first.includes("texto") && (first.includes("classe") || first.includes("label"))) start=1;
- const rows=[];
- for(let i=start;i<lines.length;i++){
-   const p=parseCSVLine(lines[i]);
-   if(p.length<2 || !p[0] || !p[1]) continue;
-   rows.push({text:p[0], label:p[1]});
- }
+} 
  const classes=[...new Set(rows.map(r=>r.label))];
  if(classes.length<2){alert("É necessário ter pelo menos duas classes.");return false;}
  dataset=rows;
