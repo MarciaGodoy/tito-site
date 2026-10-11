@@ -3,1088 +3,1102 @@
 "use strict";
 
 /* =========================================================
-   SIMULADOR ACADÊMICO DE MACHINE LEARNING
-   - Importação robusta de CSV
-   - Naive Bayes Multinomial real
+   LABORATÓRIO DE MACHINE LEARNING
+   Classificação de mensagens maternas
+   - Importação de CSV
+   - Naive Bayes Multinomial
    - Avaliação com conjunto de teste
-   - Encaminhamento humano para sinais de atenção
+   - Alerta de urgência independente do modelo
    ========================================================= */
-
-let datasetBruto = [];
-let classesUnicas = [];
-let resultadosConsolidados = {};
-let historicoTestes = [];
-let totalTestes = 0;
-let totalAcertos = 0;
-let totalErros = 0;
-let modeloFinal = null;
-let modeloTreino = null;
-let matrizAtual = null;
-let avaliacaoAtual = null;
 
 const $ = id => document.getElementById(id);
 
-function normalizar(texto) {
-    return String(texto ?? "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .trim();
+let dados = [];
+let classes = [];
+let modelo = null;
+let avaliacao = null;
+let historico = [];
+let contagemTestes = 0;
+let acertosTeste = 0;
+let errosTeste = 0;
+let ultimaPredicao = null;
+let arquivoAtual = null;
+
+/* -------------------- ALERTAS DA INTERFACE -------------------- */
+
+function mostrarAlerta(mensagem, tipo = "erro") {
+  const caixa = $("alert-box");
+  const texto = $("alert-message");
+
+  if (texto) texto.textContent = mensagem;
+
+  if (caixa) {
+    caixa.style.display = "block";
+    caixa.classList.remove("hidden");
+    caixa.style.borderColor =
+      tipo === "sucesso" ? "#16a34a" :
+      tipo === "aviso" ? "#d97706" : "#dc2626";
+  } else {
+    alert(mensagem);
+  }
 }
 
-function escaparHTML(valor) {
-    return String(valor ?? "").replace(/[&<>"']/g, c => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-    })[c]);
+function ocultarAlerta() {
+  const caixa = $("alert-box");
+  if (caixa) {
+    caixa.style.display = "none";
+    caixa.classList.add("hidden");
+  }
 }
 
-/* =========================================================
-   1. IDENTIFICAÇÃO DE SINAIS QUE EXIGEM ATENÇÃO HUMANA
+/* -------------------- NORMALIZAÇÃO -------------------- */
 
-   Estas regras NÃO criam classes no modelo.
-   Elas geram um alerta separado da previsão automática.
-   ========================================================= */
-
-function detectarNecessidadeAtendimentoHumano(texto) {
-    const t = normalizar(texto);
-
-    const regras = [
-        {
-            nome: "sangramento",
-            regex: /\bsangramento(s)?\b|\bsangrando\b|\bsangrar\b/
-        },
-        {
-            nome: "hemorragia",
-            regex: /\bhemorragia(s)?\b/
-        },
-        {
-            nome: "dor",
-            regex: /\bdor(es)?\b|\bdolorido(a|s)?\b/
-        },
-        {
-            nome: "febre",
-            regex: /\bfebre(s)?\b|\bfebril\b/
-        },
-        {
-            nome: "pressão alta",
-            regex: /\bpressao alta\b|\bpressao arterial alta\b|\bpressao elevada\b|\bpressao muito alta\b|\bhipertensao\b/
-        },
-        {
-            nome: "bebê não se mexe",
-            regex: /\bbebe nao se mexe\b|\bbebe nao mexe\b|\bnao sinto o bebe mexer\b|\bbebe parou de mexer\b|\bmovimentos do bebe diminuiram\b|\bmovimentos fetais reduzidos\b/
-        },
-        {
-            nome: "falta de ar",
-            regex: /\bfalta de ar\b|\bdificuldade para respirar\b|\bdificuldade de respirar\b|\bnao consigo respirar\b/
-        }
-    ];
-
-    return regras
-        .filter(regra => regra.regex.test(t))
-        .map(regra => regra.nome);
+function normalizarTexto(texto) {
+  return String(texto ?? "")
+    .replace(/^\uFEFF/, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[’']/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
-
-/* =========================================================
-   2. LEITURA ROBUSTA DE CSV
-
-   Trata aspas, delimitadores dentro de campos e quebras
-   de linha dentro de campos entre aspas.
-   ========================================================= */
-
-function analisarCSV(conteudo, delimitador) {
-    const linhas = [];
-    let linha = [];
-    let campo = "";
-    let dentroAspas = false;
-
-    conteudo = String(conteudo ?? "")
-        .replace(/^\uFEFF/, "")
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n");
-
-    for (let i = 0; i < conteudo.length; i++) {
-        const ch = conteudo[i];
-
-        if (ch === '"') {
-            if (dentroAspas && conteudo[i + 1] === '"') {
-                campo += '"';
-                i++;
-            } else {
-                dentroAspas = !dentroAspas;
-            }
-        } else if (ch === delimitador && !dentroAspas) {
-            linha.push(campo);
-            campo = "";
-        } else if (ch === "\n" && !dentroAspas) {
-            linha.push(campo);
-            if (linha.some(v => String(v).trim() !== "")) {
-                linhas.push(linha);
-            }
-            linha = [];
-            campo = "";
-        } else {
-            campo += ch;
-        }
-    }
-
-    if (dentroAspas) {
-        throw new Error(
-            "Há aspas não fechadas no CSV. Verifique o arquivo."
-        );
-    }
-
-    linha.push(campo);
-    if (linha.some(v => String(v).trim() !== "")) {
-        linhas.push(linha);
-    }
-
-    return linhas;
-}
-
-function contarDelimitadores(cabecalho, delimitador) {
-    let dentroAspas = false;
-    let total = 0;
-
-    for (let i = 0; i < cabecalho.length; i++) {
-        const ch = cabecalho[i];
-
-        if (ch === '"') {
-            if (dentroAspas && cabecalho[i + 1] === '"') {
-                i++;
-            } else {
-                dentroAspas = !dentroAspas;
-            }
-        } else if (ch === delimitador && !dentroAspas) {
-            total++;
-        }
-    }
-
-    return total;
-}
-
-function identificarColuna(cabecalhos, tipo) {
-    const nomes = cabecalhos.map((nome, indice) => ({
-        nome: normalizar(nome).replace(/[^a-z0-9]/g, ""),
-        indice
-    }));
-
-    const aliases = tipo === "texto"
-        ? ["texto", "mensagem", "mensagens", "text", "frase", "conversa"]
-        : ["classe", "classes", "rotulo", "label", "categoria", "target"];
-
-    for (const alias of aliases) {
-        const encontrada = nomes.find(item => item.nome === alias);
-        if (encontrada) return encontrada.indice;
-    }
-
-    return -1;
-}
-
-function handleFileSelect(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-
-    esconderAlerta();
-
-    $("file-name").textContent = file.name;
-    $("file-size").textContent =
-        (file.size / 1024).toFixed(1) + " KB";
-    $("file-rows").textContent = "Lendo...";
-    $("file-status").textContent = "Processando";
-    $("file-status").className =
-        "text-amber-600 block mt-0.5 font-medium";
-    $("btn-submeter").disabled = true;
-
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
-        try {
-            processarCSVRobusto(e.target.result);
-        } catch (erro) {
-            datasetBruto = [];
-            classesUnicas = [];
-            $("file-rows").textContent = "0";
-            $("file-status").textContent = "Erro na leitura";
-            $("file-status").className =
-                "text-rose-600 block mt-0.5 font-medium";
-            mostrarAlerta(erro.message || "Não foi possível ler o CSV.");
-        }
-    };
-
-    reader.onerror = function() {
-        mostrarAlerta(
-            "Falha na leitura do arquivo. Tente selecionar o CSV novamente."
-        );
-        $("file-status").textContent = "Falha na leitura";
-    };
-
-    reader.readAsText(file, "UTF-8");
-}
-
-function processarCSVRobusto(conteudo) {
-    const primeiraLinha = String(conteudo)
-        .replace(/^\uFEFF/, "")
-        .split(/\r\n|\n|\r/)[0] || "";
-
-    const candidatos = [",", ";", "\t"];
-    const delimitador = candidatos
-        .map(d => ({ d, n: contarDelimitadores(primeiraLinha, d) }))
-        .sort((a, b) => b.n - a.n)[0].d;
-
-    const linhas = analisarCSV(conteudo, delimitador);
-
-    if (linhas.length < 2) {
-        throw new Error(
-            "O arquivo precisa conter um cabeçalho e pelo menos um registro."
-        );
-    }
-
-    const cabecalhos = linhas[0].map(v => String(v).trim());
-    const colunaTexto = identificarColuna(cabecalhos, "texto");
-    const colunaClasse = identificarColuna(cabecalhos, "classe");
-
-    if (colunaTexto < 0 || colunaClasse < 0) {
-        throw new Error(
-            "Não encontrei as colunas texto e classe. " +
-            "Confira se o cabeçalho contém exatamente esses nomes."
-        );
-    }
-
-    const novosDados = [];
-    let linhasInvalidas = 0;
-
-    for (let i = 1; i < linhas.length; i++) {
-        const campos = linhas[i];
-        const texto = String(campos[colunaTexto] ?? "").trim();
-        const classe = String(campos[colunaClasse] ?? "").trim();
-
-        if (!texto || !classe) {
-            linhasInvalidas++;
-            continue;
-        }
-
-        novosDados.push({ texto, classe });
-    }
-
-    if (novosDados.length === 0) {
-        throw new Error(
-            "Nenhum registro válido foi encontrado nas colunas texto e classe."
-        );
-    }
-
-    datasetBruto = novosDados;
-    classesUnicas = [...new Set(datasetBruto.map(d => d.classe))]
-        .sort((a, b) => a.localeCompare(b, "pt-BR"));
-
-    $("file-rows").textContent = datasetBruto.length;
-    $("file-status").textContent = "Carregado com sucesso";
-    $("file-status").className =
-        "text-emerald-600 block mt-0.5 font-medium";
-    $("btn-submeter").disabled = false;
-
-    renderizarPrimeirosRegistros();
-    esconderAlerta();
-
-    let mensagem =
-        `CSV importado: ${datasetBruto.length} mensagens e ` +
-        `${classesUnicas.length} classes.`;
-
-    if (linhasInvalidas > 0) {
-        mensagem += ` ${linhasInvalidas} linha(s) vazia(s) ou incompleta(s) foram ignoradas.`;
-    }
-
-    console.info(mensagem);
-}
-
-function renderizarPrimeirosRegistros() {
-    const tbody = $("preview-tbody");
-    tbody.innerHTML = "";
-
-    datasetBruto.slice(0, 3).forEach((item, i) => {
-        const tr = document.createElement("tr");
-        tr.className = "hover:bg-slate-50";
-
-        [i + 1, item.texto, item.classe].forEach((valor, j) => {
-            const td = document.createElement("td");
-            td.className = j === 0
-                ? "p-3 font-semibold text-slate-500"
-                : j === 2
-                    ? "p-3 font-semibold text-indigo-700"
-                    : "p-3 text-slate-700";
-
-            td.textContent = valor;
-            tr.appendChild(td);
-        });
-
-        tbody.appendChild(tr);
-    });
-
-    $("preview-container").classList.remove("hidden");
-}
-
-/* =========================================================
-   3. NAVEGAÇÃO
-   ========================================================= */
-
-function atualizarIndicadores(etapa) {
-    for (let i = 1; i <= 4; i++) {
-        const el = $(`ind-step-${i}`);
-        if (!el) continue;
-
-        el.className =
-            "border-2 rounded-xl p-3 transition-all duration-300 " +
-            "flex items-center justify-center gap-2 cursor-pointer " +
-            (i < etapa
-                ? "step-completed border-emerald-500 bg-emerald-50 text-emerald-800"
-                : i === etapa
-                    ? "step-active border-indigo-600 bg-indigo-50 text-indigo-900 shadow-sm"
-                    : "step-inactive border-slate-200 bg-white text-slate-400");
-    }
-}
-
-function mostrarSecao(id) {
-    [
-        "section-dados",
-        "section-visualizacao",
-        "section-treinamento",
-        "section-teste"
-    ].forEach(secao => $(secao).classList.add("hidden"));
-
-    $(id).classList.remove("hidden");
-}
-
-function voltarParaDados() {
-    mostrarSecao("section-dados");
-    atualizarIndicadores(1);
-}
-
-function voltarParaAlgoritmo() {
-    mostrarSecao("section-visualizacao");
-    atualizarIndicadores(2);
-}
-
-function voltarParaAvaliacao() {
-    mostrarSecao("section-treinamento");
-    atualizarIndicadores(3);
-}
-
-function irParaTeste() {
-    if (!modeloFinal) {
-        mostrarAlerta("Treine o modelo antes de realizar testes.");
-        return;
-    }
-
-    mostrarSecao("section-teste");
-    atualizarIndicadores(4);
-}
-
-function irParaEtapa(etapa) {
-    if (etapa === 1) {
-        voltarParaDados();
-    } else if (etapa === 2 && datasetBruto.length > 0) {
-        mostrarSecao("section-visualizacao");
-        atualizarIndicadores(2);
-    } else if (etapa === 3 && avaliacaoAtual) {
-        voltarParaAvaliacao();
-    } else if (etapa === 4 && modeloFinal) {
-        irParaTeste();
-    }
-}
-
-/* =========================================================
-   4. PREPARAÇÃO DOS DADOS E NAIVE BAYES MULTINOMIAL
-   ========================================================= */
 
 function tokenizar(texto) {
-    return normalizar(texto).match(/[\p{L}\p{N}]+/gu) || [];
+  return normalizarTexto(texto)
+    .split(/\s+/)
+    .filter(palavra => palavra.length > 1);
 }
 
-function embaralhar(array) {
-    const resultado = array.slice();
+/* -------------------- REGRA INDEPENDENTE DE URGÊNCIA --------------------
+   Esta regra NÃO cria uma classe no treinamento.
+   Ela gera um alerta de encaminhamento humano, separado da previsão.
+   A lista precisa ser validada por profissionais de saúde antes de
+   qualquer uso clínico real.
+   ----------------------------------------------------------------------- */
 
-    for (let i = resultado.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [resultado[i], resultado[j]] = [resultado[j], resultado[i]];
+function detectarUrgencia(texto) {
+  const t = normalizarTexto(texto);
+
+  const regras = [
+    /\bhemorragia\b/,
+    /\bhemorragias\b/,
+    /\bsangramento\b/,
+    /\bsangramentos\b/,
+    /\bsangrando\b/,
+    /\bperda de sangue\b/,
+    /\bdor\b/,
+    /\bdores\b/,
+    /\bfebre\b/,
+    /\bpressao alta\b/,
+    /\bpressao arterial alta\b/,
+    /\bpressao muito alta\b/,
+    /\bbebe nao se mexe\b/,
+    /\bbebe nao mexe\b/,
+    /\bbebe parou de mexer\b/,
+    /\bbebe mexe menos\b/,
+    /\bbebe esta mexendo menos\b/,
+    /\bmovimentos fetais diminuidos\b/,
+    /\bfalta de ar\b/
+  ];
+
+  return regras.some(regra => regra.test(t));
+}
+
+/* -------------------- LEITURA DE CSV -------------------- */
+
+function detectarSeparador(texto) {
+  const primeiraLinha = (texto.split(/\r?\n/).find(l => l.trim()) || "");
+  const candidatos = [",", ";", "\t"];
+  let melhor = ",";
+  let maior = -1;
+
+  candidatos.forEach(separador => {
+    let quantidade = 0;
+    let dentroAspas = false;
+
+    for (let i = 0; i < primeiraLinha.length; i++) {
+      const c = primeiraLinha[i];
+
+      if (c === '"') {
+        if (dentroAspas && primeiraLinha[i + 1] === '"') {
+          i++;
+        } else {
+          dentroAspas = !dentroAspas;
+        }
+      } else if (c === separador && !dentroAspas) {
+        quantidade++;
+      }
     }
 
-    return resultado;
-}
-
-function dividirTreinoTeste(dados) {
-    const porClasse = new Map();
-
-    dados.forEach(item => {
-        if (!porClasse.has(item.classe)) {
-            porClasse.set(item.classe, []);
-        }
-        porClasse.get(item.classe).push(item);
-    });
-
-    const treino = [];
-    const teste = [];
-
-    for (const grupo of porClasse.values()) {
-        const grupoEmbaralhado = embaralhar(grupo);
-
-        if (grupoEmbaralhado.length === 1) {
-            treino.push(grupoEmbaralhado[0]);
-            continue;
-        }
-
-        let nTeste = Math.floor(grupoEmbaralhado.length * 0.2);
-        nTeste = Math.max(1, nTeste);
-        nTeste = Math.min(nTeste, grupoEmbaralhado.length - 1);
-
-        teste.push(...grupoEmbaralhado.slice(0, nTeste));
-        treino.push(...grupoEmbaralhado.slice(nTeste));
+    if (quantidade > maior) {
+      maior = quantidade;
+      melhor = separador;
     }
+  });
 
-    return {
-        treino: embaralhar(treino),
-        teste: embaralhar(teste)
-    };
+  return melhor;
 }
 
-function treinarNaiveBayes(dados) {
-    if (!dados.length) {
-        throw new Error("Não há dados para treinar.");
+function analisarCSV(texto, separador) {
+  const linhas = [];
+  let linha = [];
+  let campo = "";
+  let dentroAspas = false;
+
+  texto = texto.replace(/^\uFEFF/, "");
+
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i];
+
+    if (c === '"') {
+      if (dentroAspas && texto[i + 1] === '"') {
+        campo += '"';
+        i++;
+      } else {
+        dentroAspas = !dentroAspas;
+      }
+    } else if (c === separador && !dentroAspas) {
+      linha.push(campo);
+      campo = "";
+    } else if ((c === "\n" || c === "\r") && !dentroAspas) {
+      if (c === "\r" && texto[i + 1] === "\n") i++;
+
+      linha.push(campo);
+
+      if (linha.some(v => String(v).trim() !== "")) {
+        linhas.push(linha);
+      }
+
+      linha = [];
+      campo = "";
+    } else {
+      campo += c;
     }
+  }
 
-    const contagemClasses = new Map();
-    const contagemPalavras = new Map();
-    const totalPalavrasClasse = new Map();
-    const vocabulario = new Set();
+  if (campo !== "" || linha.length > 0) {
+    linha.push(campo);
 
-    dados.forEach(item => {
-        const classe = item.classe;
-        const tokens = tokenizar(item.texto);
+    if (linha.some(v => String(v).trim() !== "")) {
+      linhas.push(linha);
+    }
+  }
 
-        contagemClasses.set(
-            classe,
-            (contagemClasses.get(classe) || 0) + 1
-        );
-
-        if (!contagemPalavras.has(classe)) {
-            contagemPalavras.set(classe, new Map());
-            totalPalavrasClasse.set(classe, 0);
-        }
-
-        const mapa = contagemPalavras.get(classe);
-
-        tokens.forEach(token => {
-            vocabulario.add(token);
-            mapa.set(token, (mapa.get(token) || 0) + 1);
-            totalPalavrasClasse.set(
-                classe,
-                totalPalavrasClasse.get(classe) + 1
-            );
-        });
-    });
-
-    return {
-        classes: [...contagemClasses.keys()].sort(),
-        contagemClasses,
-        contagemPalavras,
-        totalPalavrasClasse,
-        vocabulario,
-        totalDocumentos: dados.length,
-        alpha: 1
-    };
+  return linhas;
 }
 
-function preverNaiveBayes(modelo, texto) {
-    const tokens = tokenizar(texto);
-    const palavrasConhecidas = tokens.filter(
-        token => modelo.vocabulario.has(token)
+function localizarColunas(cabecalho) {
+  const nomes = cabecalho.map(v =>
+    normalizarTexto(v).replace(/[\s_-]+/g, "")
+  );
+
+  const colunaTexto = nomes.findIndex(v =>
+    ["texto", "mensagem", "mensagens", "text", "message"].includes(v)
+  );
+
+  const colunaClasse = nomes.findIndex(v =>
+    ["classe", "class", "categoria", "label", "rotulo"].includes(v)
+  );
+
+  return { colunaTexto, colunaClasse };
+}
+
+function importarCSV(texto) {
+  const separador = detectarSeparador(texto);
+  const linhas = analisarCSV(texto, separador);
+
+  if (linhas.length < 2) {
+    throw new Error(
+      "O CSV precisa conter o cabeçalho e pelo menos uma mensagem."
     );
+  }
 
-    const tamanhoVocabulario = Math.max(1, modelo.vocabulario.size);
-    const pontuacoes = [];
+  const colunas = localizarColunas(linhas[0]);
 
-    for (const classe of modelo.classes) {
-        const nClasse = modelo.contagemClasses.get(classe);
-        const prior = Math.log(nClasse / modelo.totalDocumentos);
-        const mapa = modelo.contagemPalavras.get(classe);
-        const totalPalavras = modelo.totalPalavrasClasse.get(classe);
+  if (colunas.colunaTexto < 0 || colunas.colunaClasse < 0) {
+    throw new Error(
+      "Não encontrei as colunas texto e classe. " +
+      "Verifique o cabeçalho do arquivo."
+    );
+  }
 
-        let score = prior;
+  const registros = [];
 
-        for (const token of palavrasConhecidas) {
-            const frequencia = mapa.get(token) || 0;
-            const probabilidade =
-                (frequencia + modelo.alpha) /
-                (totalPalavras + modelo.alpha * tamanhoVocabulario);
+  for (let i = 1; i < linhas.length; i++) {
+    const linha = linhas[i];
 
-            score += Math.log(probabilidade);
-        }
+    const textoOriginal = String(
+      linha[colunas.colunaTexto] ?? ""
+    ).trim();
 
-        pontuacoes.push({ classe, score });
-    }
+    const classeOriginal = String(
+      linha[colunas.colunaClasse] ?? ""
+    ).trim();
 
-    pontuacoes.sort((a, b) => b.score - a.score);
+    if (!textoOriginal || !classeOriginal) continue;
 
-    const maiorScore = pontuacoes[0].score;
-    const expScores = pontuacoes.map(p => Math.exp(p.score - maiorScore));
-    const soma = expScores.reduce((a, b) => a + b, 0);
+    registros.push({
+      texto: textoOriginal,
+      classe: classeOriginal
+    });
+  }
 
-    const probabilidades = pontuacoes.map((p, i) => ({
-        classe: p.classe,
-        probabilidade: expScores[i] / soma
-    }));
+  if (registros.length === 0) {
+    throw new Error(
+      "Nenhuma mensagem válida foi encontrada nas colunas texto e classe."
+    );
+  }
 
-    return {
-        classe: probabilidades[0].classe,
-        confianca: probabilidades[0].probabilidade,
-        probabilidades,
-        tokensReconhecidos: palavrasConhecidas.length
-    };
+  return registros;
 }
 
-/* =========================================================
-   5. MÉTRICAS E MATRIZ DE CONFUSÃO REAIS
-   ========================================================= */
+/* -------------------- INTERFACE DO ARQUIVO -------------------- */
 
-function avaliarModelo(modelo, teste, classes) {
-    const matriz = {};
-    classes.forEach(real => {
-        matriz[real] = {};
-        classes.forEach(prev => matriz[real][prev] = 0);
-    });
+function configurarImportacao() {
+  const entrada = $("csvFile") || $("file");
 
-    let acertos = 0;
+  if (!entrada) return;
 
-    teste.forEach(item => {
-        const previsao = preverNaiveBayes(modelo, item.texto).classe;
-        if (!matriz[item.classe]) {
-            matriz[item.classe] = {};
-            classes.forEach(c => matriz[item.classe][c] = 0);
-        }
-        if (matriz[item.classe][previsao] === undefined) {
-            matriz[item.classe][previsao] = 0;
-        }
+  entrada.addEventListener("change", function () {
+    ocultarAlerta();
 
-        matriz[item.classe][previsao]++;
+    const arquivo = entrada.files && entrada.files[0];
+    if (!arquivo) return;
 
-        if (previsao === item.classe) acertos++;
-    });
+    arquivoAtual = arquivo;
 
-    const total = teste.length;
-    const acuracia = total ? acertos / total : 0;
+    const leitor = new FileReader();
 
-    let somaPrecisao = 0;
-    let somaRecall = 0;
-    let somaF1 = 0;
-    let classesAvaliadas = 0;
+    leitor.onload = function (evento) {
+      try {
+        dados = importarCSV(String(evento.target.result || ""));
+
+        classes = [...new Set(dados.map(d => d.classe))].sort();
+
+        modelo = null;
+        avaliacao = null;
+        historico = [];
+        contagemTestes = 0;
+        acertosTeste = 0;
+        errosTeste = 0;
+        ultimaPredicao = null;
+
+        atualizarDadosArquivo(arquivo);
+        mostrarPrevia();
+        atualizarEstatisticas();
+
+        mostrarAlerta(
+          "Arquivo importado: " + dados.length +
+          " mensagens válidas e " + classes.length + " classes.",
+          "sucesso"
+        );
+      } catch (erro) {
+        dados = [];
+        classes = [];
+        modelo = null;
+        avaliacao = null;
+
+        mostrarAlerta(
+          "Não foi possível importar o CSV. " + erro.message
+        );
+      }
+    };
+
+    leitor.onerror = function () {
+      mostrarAlerta("O navegador não conseguiu ler o arquivo.");
+    };
+
+    leitor.readAsText(arquivo, "UTF-8");
+  });
+}
+
+function definirTexto(id, valor) {
+  const elemento = $(id);
+  if (elemento) elemento.textContent = valor;
+}
+
+function atualizarDadosArquivo(arquivo) {
+  definirTexto("file-name", arquivo.name);
+  definirTexto(
+    "file-size",
+    (arquivo.size / 1024).toFixed(1) + " KB"
+  );
+  definirTexto("file-rows", String(dados.length));
+  definirTexto("file-status", "CSV importado");
+}
+
+function mostrarPrevia() {
+  const corpo = $("preview-tbody");
+  if (!corpo) return;
+
+  corpo.innerHTML = "";
+
+  dados.slice(0, 10).forEach(registro => {
+    const tr = document.createElement("tr");
+
+    const tdTexto = document.createElement("td");
+    tdTexto.textContent = registro.texto;
+
+    const tdClasse = document.createElement("td");
+    tdClasse.textContent = registro.classe;
+
+    tr.appendChild(tdTexto);
+    tr.appendChild(tdClasse);
+    corpo.appendChild(tr);
+  });
+
+  const contagem = $("file-rows");
+  if (contagem) contagem.textContent = String(dados.length);
+
+  const container = $("preview-container");
+  if (container) container.style.display = "block";
+}
+
+/* -------------------- ESTATÍSTICAS DA BASE -------------------- */
+
+function atualizarEstatisticas() {
+  definirTexto("stat-total-reg", String(dados.length));
+  definirTexto("stat-classes-count", String(classes.length));
+
+  const chips = $("classes-chips-container");
+
+  if (chips) {
+    chips.innerHTML = "";
 
     classes.forEach(classe => {
-        let vp = matriz[classe]?.[classe] || 0;
-        let fp = 0;
-        let fn = 0;
+      const quantidade = dados.filter(d => d.classe === classe).length;
+      const chip = document.createElement("span");
 
-        classes.forEach(real => {
-            if (real !== classe) {
-                fp += matriz[real]?.[classe] || 0;
-                fn += matriz[classe]?.[real] || 0;
-            }
-        });
+      chip.textContent = classe + " (" + quantidade + ")";
+      chip.style.display = "inline-block";
+      chip.style.margin = "4px";
+      chip.style.padding = "5px 9px";
+      chip.style.borderRadius = "12px";
+      chip.style.background = "#e8eef8";
+      chip.style.color = "#172033";
+      chip.style.fontSize = "12px";
 
-        const suporte = classes.reduce(
-            (s, c) => s + (matriz[classe]?.[c] || 0), 0
-        );
+      chips.appendChild(chip);
+    });
+  }
+}
 
-        if (suporte === 0) return;
+/* -------------------- DIVISÃO TREINO / TESTE -------------------- */
 
-        const precisao = vp + fp ? vp / (vp + fp) : 0;
-        const recall = vp + fn ? vp / (vp + fn) : 0;
-        const f1 = precisao + recall
-            ? 2 * precisao * recall / (precisao + recall)
-            : 0;
+function dividirDados(registros, proporcaoTeste = 0.2) {
+  const porClasse = {};
 
-        somaPrecisao += precisao;
-        somaRecall += recall;
-        somaF1 += f1;
-        classesAvaliadas++;
+  registros.forEach(registro => {
+    if (!porClasse[registro.classe]) {
+      porClasse[registro.classe] = [];
+    }
+    porClasse[registro.classe].push(registro);
+  });
+
+  const treino = [];
+  const teste = [];
+
+  Object.keys(porClasse).forEach(classe => {
+    const grupo = porClasse[classe].slice();
+
+    for (let i = grupo.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [grupo[i], grupo[j]] = [grupo[j], grupo[i]];
+    }
+
+    let nTeste = Math.round(grupo.length * proporcaoTeste);
+
+    if (grupo.length > 1) {
+      nTeste = Math.max(1, Math.min(grupo.length - 1, nTeste));
+    } else {
+      nTeste = 0;
+    }
+
+    teste.push(...grupo.slice(0, nTeste));
+    treino.push(...grupo.slice(nTeste));
+  });
+
+  return { treino, teste };
+}
+
+/* -------------------- NAIVE BAYES MULTINOMIAL -------------------- */
+
+function treinarNaiveBayes(registros) {
+  if (!registros.length) {
+    throw new Error("Não há dados para treinar o modelo.");
+  }
+
+  const contagemClasse = {};
+  const contagemPalavra = {};
+  const totalPalavrasClasse = {};
+  const vocabulario = new Set();
+
+  registros.forEach(registro => {
+    const classe = registro.classe;
+
+    contagemClasse[classe] = (contagemClasse[classe] || 0) + 1;
+    contagemPalavra[classe] = contagemPalavra[classe] || {};
+    totalPalavrasClasse[classe] = totalPalavrasClasse[classe] || 0;
+
+    tokenizar(registro.texto).forEach(palavra => {
+      vocabulario.add(palavra);
+
+      contagemPalavra[classe][palavra] =
+        (contagemPalavra[classe][palavra] || 0) + 1;
+
+      totalPalavrasClasse[classe]++;
+    });
+  });
+
+  return {
+    contagemClasse,
+    contagemPalavra,
+    totalPalavrasClasse,
+    vocabulario,
+    totalRegistros: registros.length,
+    classes: Object.keys(contagemClasse)
+  };
+}
+
+function preverNaiveBayes(texto, modeloTreinado) {
+  const palavras = tokenizar(texto);
+
+  if (!palavras.length) {
+    throw new Error("Digite uma mensagem com palavras para classificar.");
+  }
+
+  const tamanhoVocabulario = Math.max(
+    modeloTreinado.vocabulario.size, 1
+  );
+
+  let melhorClasse = null;
+  let maiorPontuacao = -Infinity;
+  const pontuacoes = {};
+
+  modeloTreinado.classes.forEach(classe => {
+    const nClasse = modeloTreinado.contagemClasse[classe];
+
+    let pontuacao = Math.log(
+      nClasse / modeloTreinado.totalRegistros
+    );
+
+    const totalPalavras =
+      modeloTreinado.totalPalavrasClasse[classe];
+
+    palavras.forEach(palavra => {
+      const frequencia =
+        (modeloTreinado.contagemPalavra[classe][palavra] || 0);
+
+      // Suavização de Laplace
+      const probabilidade =
+        (frequencia + 1) /
+        (totalPalavras + tamanhoVocabulario);
+
+      pontuacao += Math.log(probabilidade);
     });
 
-    return {
-        matriz,
-        total,
-        acertos,
-        erros: total - acertos,
-        acuracia,
-        precisao: classesAvaliadas ? somaPrecisao / classesAvaliadas : 0,
-        recall: classesAvaliadas ? somaRecall / classesAvaliadas : 0,
-        f1: classesAvaliadas ? somaF1 / classesAvaliadas : 0
-    };
+    pontuacoes[classe] = pontuacao;
+
+    if (pontuacao > maiorPontuacao) {
+      maiorPontuacao = pontuacao;
+      melhorClasse = classe;
+    }
+  });
+
+  const valores = Object.values(pontuacoes);
+  const maior = Math.max(...valores);
+  const expValores = valores.map(v => Math.exp(v - maior));
+  const soma = expValores.reduce((a, b) => a + b, 0);
+  const indice = Object.keys(pontuacoes).indexOf(melhorClasse);
+
+  const confianca = soma > 0
+    ? expValores[indice] / soma
+    : 0;
+
+  return {
+    classe: melhorClasse,
+    confianca,
+    pontuacoes
+  };
+}
+
+/* -------------------- AVALIAÇÃO DO MODELO -------------------- */
+
+function calcularMetricas(registrosTeste, modeloTeste) {
+  const matriz = {};
+  let acertos = 0;
+
+  const todasClasses = [...new Set([
+    ...classes,
+    ...modeloTeste.classes
+  ])];
+
+  todasClasses.forEach(classe => {
+    matriz[classe] = {};
+    todasClasses.forEach(prevista => {
+      matriz[classe][prevista] = 0;
+    });
+  });
+
+  registrosTeste.forEach(registro => {
+    const previsao = preverNaiveBayes(
+      registro.texto, modeloTeste
+    ).classe;
+
+    if (!matriz[registro.classe]) {
+      matriz[registro.classe] = {};
+    }
+
+    if (matriz[registro.classe][previsao] === undefined) {
+      matriz[registro.classe][previsao] = 0;
+    }
+
+    matriz[registro.classe][previsao]++;
+
+    if (previsao === registro.classe) acertos++;
+  });
+
+  const total = registrosTeste.length;
+  const acuracia = total ? acertos / total : 0;
+
+  let somaPrecisao = 0;
+  let somaRecall = 0;
+  let somaF1 = 0;
+  let nClassesAvaliadas = 0;
+
+  todasClasses.forEach(classe => {
+    let verdadeirosPositivos = matriz[classe]?.[classe] || 0;
+    let falsosPositivos = 0;
+    let falsosNegativos = 0;
+
+    todasClasses.forEach(outra => {
+      if (outra !== classe) {
+        falsosPositivos += matriz[outra]?.[classe] || 0;
+        falsosNegativos += matriz[classe]?.[outra] || 0;
+      }
+    });
+
+    const precisao = verdadeirosPositivos + falsosPositivos
+      ? verdadeirosPositivos /
+        (verdadeirosPositivos + falsosPositivos)
+      : 0;
+
+    const recall = verdadeirosPositivos + falsosNegativos
+      ? verdadeirosPositivos /
+        (verdadeirosPositivos + falsosNegativos)
+      : 0;
+
+    const f1 = precisao + recall
+      ? 2 * precisao * recall / (precisao + recall)
+      : 0;
+
+    if (
+      verdadeirosPositivos + falsosPositivos +
+      falsosNegativos > 0
+    ) {
+      somaPrecisao += precisao;
+      somaRecall += recall;
+      somaF1 += f1;
+      nClassesAvaliadas++;
+    }
+  });
+
+  return {
+    total,
+    acertos,
+    erros: total - acertos,
+    acuracia,
+    precisao: nClassesAvaliadas ? somaPrecisao / nClassesAvaliadas : 0,
+    recall: nClassesAvaliadas ? somaRecall / nClassesAvaliadas : 0,
+    f1: nClassesAvaliadas ? somaF1 / nClassesAvaliadas : 0,
+    matriz,
+    classes: todasClasses
+  };
 }
 
 function percentual(valor) {
-    return (valor * 100).toFixed(2) + "%";
+  return (100 * valor).toFixed(1) + "%";
 }
 
-function renderizarMatrizConfusao(classes, matriz) {
-    const box = $("confusion-matrix-box");
-    let html = `
-        <p class="text-xs text-slate-500 mb-3">
-            Linhas = classe real; colunas = classe prevista.
-            Os valores correspondem ao conjunto de teste.
-        </p>
-        <div class="overflow-x-auto">
-        <table class="w-full text-center border-collapse text-[11px]">
-        <thead><tr class="bg-slate-200 text-slate-700">
-        <th class="p-2 border">Real \\ Prevista</th>`;
+function mostrarMatrizConfusao(resultado) {
+  const caixa = $("confusion-matrix-box");
+  if (!caixa) return;
 
-    classes.forEach(c => {
-        html += `<th class="p-2 border">${escaparHTML(c)}</th>`;
+  caixa.innerHTML = "";
+
+  const tabela = document.createElement("table");
+  tabela.style.width = "100%";
+  tabela.style.borderCollapse = "collapse";
+  tabela.style.fontSize = "12px";
+
+  const thead = document.createElement("thead");
+  const cabecalho = document.createElement("tr");
+
+  const canto = document.createElement("th");
+  canto.textContent = "Real / Prevista";
+  cabecalho.appendChild(canto);
+
+  resultado.classes.forEach(classe => {
+    const th = document.createElement("th");
+    th.textContent = classe;
+    th.style.padding = "5px";
+    cabecalho.appendChild(th);
+  });
+
+  thead.appendChild(cabecalho);
+  tabela.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+
+  resultado.classes.forEach(real => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = real;
+    th.style.padding = "5px";
+    tr.appendChild(th);
+
+    resultado.classes.forEach(prevista => {
+      const td = document.createElement("td");
+      td.textContent = String(
+        resultado.matriz[real]?.[prevista] || 0
+      );
+      td.style.padding = "5px";
+      td.style.textAlign = "center";
+      td.style.border = "1px solid #ddd";
+      tr.appendChild(td);
     });
 
-    html += "</tr></thead><tbody>";
+    tbody.appendChild(tr);
+  });
 
-    classes.forEach(real => {
-        html += `<tr><th class="p-2 border bg-slate-100 text-left">${escaparHTML(real)}</th>`;
-
-        classes.forEach(prev => {
-            const valor = matriz[real]?.[prev] || 0;
-            const diagonal = real === prev;
-            const cor = diagonal
-                ? "bg-emerald-100 font-bold text-emerald-900"
-                : valor > 0
-                    ? "bg-rose-50 text-rose-800"
-                    : "text-slate-400";
-
-            html += `<td class="p-2 border ${cor}">${valor}</td>`;
-        });
-
-        html += "</tr>";
-    });
-
-    html += "</tbody></table></div>";
-    box.innerHTML = html;
+  tabela.appendChild(tbody);
+  caixa.appendChild(tabela);
 }
 
-/* =========================================================
-   6. SUBMISSÃO DA BASE
-   ========================================================= */
+/* -------------------- TREINAMENTO -------------------- */
 
-function submeterDados() {
-    if (!datasetBruto.length) {
-        mostrarAlerta("Selecione um arquivo CSV válido primeiro.");
-        return;
+function treinarModelo() {
+  ocultarAlerta();
+
+  if (dados.length < 2) {
+    mostrarAlerta("Importe primeiro um CSV com pelo menos duas mensagens.");
+    return;
+  }
+
+  const inicio = performance.now();
+
+  try {
+    const divisao = dividirDados(dados, 0.2);
+
+    if (!divisao.treino.length) {
+      throw new Error("Não há mensagens suficientes para treinamento.");
     }
 
-    classesUnicas = [...new Set(datasetBruto.map(d => d.classe))].sort();
+    const modeloTeste = treinarNaiveBayes(divisao.treino);
 
-    if (classesUnicas.length < 2) {
-        mostrarAlerta("A base precisa conter pelo menos duas classes distintas.");
-        return;
-    }
+    avaliacao = calcularMetricas(divisao.teste, modeloTeste);
 
-    const divisao = dividirTreinoTeste(datasetBruto);
+    // Depois da avaliação, treina o modelo final com toda a base.
+    modelo = treinarNaiveBayes(dados);
 
-    $("stat-total-reg").textContent = datasetBruto.length;
-    $("stat-split-pct").textContent = "Aproximadamente 80% / 20%";
-    $("stat-classes-count").textContent = classesUnicas.length + " classes";
-    $("stat-split-abs").textContent =
-        `${divisao.treino.length} treino / ${divisao.teste.length} teste`;
+    const tempo = ((performance.now() - inicio) / 1000).toFixed(2);
 
-    const container = $("classes-chips-container");
-    container.innerHTML = "";
+    definirTexto("metric-acc", percentual(avaliacao.acuracia));
+    definirTexto("metric-prec", percentual(avaliacao.precisao));
+    definirTexto("metric-rec", percentual(avaliacao.recall));
+    definirTexto("metric-f1", percentual(avaliacao.f1));
+    definirTexto(
+      "metric-hits-errors",
+      avaliacao.acertos + " acertos / " + avaliacao.erros + " erros"
+    );
+    definirTexto("metric-time", tempo + " s");
+    definirTexto("res-alg-title", "Naive Bayes Multinomial");
+    definirTexto("stat-split-abs", String(divisao.treino.length));
+    definirTexto("stat-split-pct", "80% treino / 20% teste");
 
-    classesUnicas.forEach(classe => {
-        const chip = document.createElement("span");
-        chip.className =
-            "bg-indigo-50 text-indigo-700 border border-indigo-200 " +
-            "text-[11px] font-semibold px-3 py-1 rounded-xl";
-        chip.textContent = classe;
-        container.appendChild(chip);
-    });
+    mostrarMatrizConfusao(avaliacao);
 
-    esconderAlerta();
-    mostrarSecao("section-visualizacao");
-    atualizarIndicadores(2);
+    const resultados = $("training-results");
+    if (resultados) resultados.style.display = "block";
+
+    const status = $("training-status-text");
+    if (status) status.textContent = "Modelo treinado com sucesso";
+
+    mostrarAlerta(
+      "Treinamento concluído. A avaliação utiliza mensagens separadas " +
+      "para teste; o modelo final foi treinado com toda a base.",
+      "sucesso"
+    );
+
+    const progresso = $("training-progress-box");
+    if (progresso) progresso.style.display = "none";
+
+    const btn = $("train");
+    if (btn) btn.disabled = false;
+
+  } catch (erro) {
+    mostrarAlerta("Erro no treinamento: " + erro.message);
+  }
 }
 
-$("select-algoritmo").addEventListener("change", function(e) {
-    const descricoes = {
-        "naive-bayes":
-            "<strong>Naive Bayes:</strong> classificador probabilístico treinado com as mensagens e classes do CSV.",
-        "knn":
-            "<strong>KNN:</strong> esta opção ainda não está implementada neste script.",
-        "decision-tree":
-            "<strong>Árvore de Decisão:</strong> esta opção ainda não está implementada neste script.",
-        "logistic-regression":
-            "<strong>Regressão Logística:</strong> esta opção ainda não está implementada neste script."
-    };
+/* -------------------- CLASSIFICAÇÃO DE NOVA MENSAGEM -------------------- */
 
-    $("alg-description").innerHTML = descricoes[e.target.value];
+function exibirResultado(predicao, texto, alertaUrgencia) {
+  ultimaPredicao = predicao;
+
+  const resultado = $("resultado-container");
+  if (resultado) resultado.style.display = "block";
+
+  const badge = $("res-badge");
+  const confianca = $("res-confianca");
+  const explicacao = $("res-explicacao");
+
+  if (alertaUrgencia) {
+    // IMPORTANTE:
+    // O texto do alerta NÃO é uma classe do modelo.
+    // A classe prevista é mostrada separadamente para fins didáticos.
+    if (badge) {
+      badge.textContent = "ALERTA: ENCAMINHAR PARA AVALIAÇÃO HUMANA";
+      badge.style.background = "#fee2e2";
+      badge.style.color = "#991b1b";
+      badge.style.padding = "8px";
+      badge.style.borderRadius = "6px";
+      badge.style.whiteSpace = "normal";
+    }
+
+    if (confianca) {
+      confianca.textContent =
+        "Classe prevista pelo modelo: " + predicao.classe;
+    }
+
+    if (explicacao) {
+      explicacao.textContent =
+        "A mensagem contém termo associado à regra de alerta de urgência. " +
+        "Não use a classe prevista pelo modelo para descartar esse alerta. " +
+        "Encaminhe para avaliação humana conforme o protocolo do serviço. " +
+        "A regra é um mecanismo demonstrativo e não substitui triagem clínica.";
+    }
+  } else {
+    if (badge) {
+      badge.textContent = predicao.classe;
+      badge.style.background = "#dbeafe";
+      badge.style.color = "#1e40af";
+      badge.style.padding = "8px";
+      badge.style.borderRadius = "6px";
+    }
+
+    if (confianca) {
+      confianca.textContent =
+        "Confiança estimada pelo modelo: " +
+        percentual(predicao.confianca);
+    }
+
+    if (explicacao) {
+      explicacao.textContent =
+        "Classificação calculada pelo Naive Bayes com base nas mensagens " +
+        "de treinamento. A confiança é uma estimativa do modelo, não " +
+        "uma probabilidade clínica validada.";
+    }
+  }
+
+  historico.unshift({
+    texto,
+    classe: predicao.classe,
+    urgencia: alertaUrgencia,
+    confianca: predicao.confianca,
+    data: new Date().toLocaleString("pt-BR")
+  });
+
+  atualizarHistorico();
+}
+
+function classificarMensagem() {
+  ocultarAlerta();
+
+  if (!modelo) {
+    mostrarAlerta("Treine o modelo antes de classificar mensagens.");
+    return;
+  }
+
+  const campo = $("input-texto-teste") || $("newText");
+  const texto = campo ? campo.value.trim() : "";
+
+  if (!texto) {
+    mostrarAlerta("Digite uma mensagem para classificar.");
+    return;
+  }
+
+  try {
+    // A previsão do modelo e o alerta de urgência são calculados
+    // separadamente. O alerta não depende da classe prevista.
+    const alertaUrgencia = detectarUrgencia(texto);
+    const predicao = preverNaiveBayes(texto, modelo);
+
+    contagemTestes++;
+
+    // Não existe rótulo verdadeiro para uma mensagem digitada
+    // manualmente. Portanto, ela não conta como acerto ou erro.
+    definirTexto("test-count", String(contagemTestes));
+    definirTexto("test-hits", "—");
+    definirTexto("test-errors", "—");
+
+    exibirResultado(predicao, texto, alertaUrgencia);
+
+    if (alertaUrgencia) {
+      mostrarAlerta(
+        "Alerta de encaminhamento humano ativado. " +
+        "A classe prevista pelo modelo não cancela o alerta.",
+        "aviso"
+      );
+    }
+  } catch (erro) {
+    mostrarAlerta("Não foi possível classificar a mensagem: " + erro.message);
+  }
+}
+
+/* -------------------- HISTÓRICO -------------------- */
+
+function atualizarHistorico() {
+  const tabela = $("historico-table");
+  if (!tabela) return;
+
+  const corpo = tabela.querySelector("tbody") || tabela;
+  corpo.innerHTML = "";
+
+  historico.forEach(item => {
+    const tr = document.createElement("tr");
+
+    [
+      item.data,
+      item.texto,
+      item.classe,
+      item.urgencia ? "ALERTA HUMANO" : percentual(item.confianca)
+    ].forEach(valor => {
+      const td = document.createElement("td");
+      td.textContent = valor;
+      td.style.padding = "6px";
+      td.style.borderBottom = "1px solid #ddd";
+      tr.appendChild(td);
+    });
+
+    corpo.appendChild(tr);
+  });
+}
+
+/* -------------------- NAVEGAÇÃO ENTRE ETAPAS -------------------- */
+
+function irParaEtapa(numero) {
+  const etapas = [
+    "section-dados",
+    "section-visualizacao",
+    "section-treinamento",
+    "section-teste"
+  ];
+
+  etapas.forEach((id, indice) => {
+    const secao = $(id);
+    if (secao) {
+      secao.style.display = indice === numero - 1 ? "block" : "none";
+    }
+
+    const indicador = $("ind-step-" + (indice + 1));
+    if (indicador) {
+      indicador.style.opacity = indice === numero - 1 ? "1" : "0.55";
+    }
+  });
+
+  ocultarAlerta();
+}
+
+function configurarNavegacao() {
+  const botaoImportar = $("btn-submeter") || $("submitData");
+
+  if (botaoImportar) {
+    botaoImportar.addEventListener("click", function (evento) {
+      evento.preventDefault();
+
+      if (!dados.length) {
+        mostrarAlerta("Selecione e importe um arquivo CSV válido.");
+        return;
+      }
+
+      irParaEtapa(2);
+    });
+  }
+
+  const botaoTreinar = $("train");
+
+  if (botaoTreinar) {
+    botaoTreinar.addEventListener("click", function (evento) {
+      evento.preventDefault();
+      treinarModelo();
+    });
+  }
+
+  const botaoClassificar = $("classify");
+
+  if (botaoClassificar) {
+    botaoClassificar.addEventListener("click", function (evento) {
+      evento.preventDefault();
+      classificarMensagem();
+    });
+  }
+
+  const algoritmo = $("select-algoritmo");
+
+  if (algoritmo) {
+    algoritmo.addEventListener("change", function () {
+      const descricao = $("alg-description");
+
+      if (algoritmo.value.toLowerCase().includes("naive")) {
+        if (descricao) {
+          descricao.textContent =
+            "Naive Bayes Multinomial: algoritmo implementado neste simulador.";
+        }
+      } else {
+        if (descricao) {
+          descricao.textContent =
+            "Este algoritmo não está implementado nesta versão. " +
+            "Selecione Naive Bayes para executar o treinamento.";
+        }
+      }
+    });
+  }
+
+  const botaoReset = $("reset");
+
+  if (botaoReset) {
+    botaoReset.addEventListener("click", function (evento) {
+      evento.preventDefault();
+
+      dados = [];
+      classes = [];
+      modelo = null;
+      avaliacao = null;
+      historico = [];
+      contagemTestes = 0;
+      acertosTeste = 0;
+      errosTeste = 0;
+      ultimaPredicao = null;
+      arquivoAtual = null;
+
+      const entrada = $("csvFile") || $("file");
+      if (entrada) entrada.value = "";
+
+      const campo = $("input-texto-teste") || $("newText");
+      if (campo) campo.value = "";
+
+      const previa = $("preview-tbody");
+      if (previa) previa.innerHTML = "";
+
+      const tabela = $("historico-table");
+      if (tabela) {
+        const corpo = tabela.querySelector("tbody") || tabela;
+        corpo.innerHTML = "";
+      }
+
+      definirTexto("file-name", "Nenhum arquivo");
+      definirTexto("file-size", "—");
+      definirTexto("file-rows", "0");
+      definirTexto("file-status", "Aguardando arquivo");
+      definirTexto("stat-total-reg", "0");
+      definirTexto("stat-classes-count", "0");
+      definirTexto("metric-acc", "—");
+      definirTexto("metric-prec", "—");
+      definirTexto("metric-rec", "—");
+      definirTexto("metric-f1", "—");
+      definirTexto("metric-hits-errors", "—");
+      definirTexto("metric-time", "—");
+      definirTexto("test-count", "0");
+      definirTexto("test-hits", "—");
+      definirTexto("test-errors", "—");
+
+      const chips = $("classes-chips-container");
+      if (chips) chips.innerHTML = "";
+
+      const matriz = $("confusion-matrix-box");
+      if (matriz) matriz.innerHTML = "";
+
+      const resultados = $("training-results");
+      if (resultados) resultados.style.display = "none";
+
+      const resultado = $("resultado-container");
+      if (resultado) resultado.style.display = "none";
+
+      irParaEtapa(1);
+      ocultarAlerta();
+    });
+  }
+}
+
+/* -------------------- EXPORTAÇÃO SIMPLES DE RELATÓRIO -------------------- */
+
+function exportarRelatorio() {
+  if (!avaliacao) {
+    mostrarAlerta("Treine o modelo antes de exportar o relatório.");
+    return;
+  }
+
+  const linhas = [
+    "RELATÓRIO DE CLASSIFICAÇÃO DE TEXTO",
+    "",
+    "Algoritmo: Naive Bayes Multinomial",
+    "Mensagens importadas: " + dados.length,
+    "Classes: " + classes.join(", "),
+    "Mensagens no teste: " + avaliacao.total,
+    "Acurácia: " + percentual(avaliacao.acuracia),
+    "Precisão macro: " + percentual(avaliacao.precisao),
+    "Recall macro: " + percentual(avaliacao.recall),
+    "F1 macro: " + percentual(avaliacao.f1),
+    "",
+    "AVISO",
+    "Este simulador é acadêmico. O alerta de urgência é uma regra demonstrativa",
+    "e não substitui protocolos clínicos nem avaliação profissional."
+  ];
+
+  const blob = new Blob(
+    [linhas.join("\n")],
+    { type: "text/plain;charset=utf-8" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "relatorio_classificacao.txt";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  URL.revokeObjectURL(url);
+}
+
+/* -------------------- INICIALIZAÇÃO -------------------- */
+
+document.addEventListener("DOMContentLoaded", function () {
+  configurarImportacao();
+  configurarNavegacao();
+
+  const botaoExportar = $("export-pdf") || $("btn-exportar");
+
+  if (botaoExportar) {
+    botaoExportar.addEventListener("click", function (evento) {
+      evento.preventDefault();
+      exportarRelatorio();
+    });
+  }
+
+  irParaEtapa(1);
+
+  const progresso = $("training-progress-box");
+  if (progresso) progresso.style.display = "none";
+
+  const resultados = $("training-results");
+  if (resultados) resultados.style.display = "none";
+
+  const resultado = $("resultado-container");
+  if (resultado) resultado.style.display = "none";
 });
-
-function iniciarTreinamento() {
-    if (!datasetBruto.length) {
-        mostrarAlerta("Importe e submeta a base antes de treinar.");
-        return;
-    }
-
-    const algoritmo = $("select-algoritmo").value;
-
-    if (algoritmo !== "naive-bayes") {
-        mostrarAlerta(
-            "Neste script, somente o Naive Bayes está implementado. " +
-            "Selecione Naive Bayes para executar um treinamento real."
-        );
-        return;
-    }
-
-    mostrarSecao("section-treinamento");
-    atualizarIndicadores(3);
-
-    $("training-progress-box").classList.remove("hidden");
-    $("training-results").classList.add("hidden");
-    $("training-status-text").textContent =
-        "Treinando e avaliando o Naive Bayes com os dados importados...";
-
-    setTimeout(() => {
-        try {
-            const inicio = performance.now();
-            const divisao = dividirTreinoTeste(datasetBruto);
-
-            modeloTreino = treinarNaiveBayes(divisao.treino);
-
-            avaliacaoAtual = avaliarModelo(
-                modeloTreino,
-                divisao.teste,
-                classesUnicas
-            );
-
-            // O modelo de uso prático é treinado com toda a base.
-            modeloFinal = treinarNaiveBayes(datasetBruto);
-
-            const tempo = performance.now() - inicio;
-            const a = avaliacaoAtual;
-
-            matrizAtual = a.matriz;
-
-            resultadosConsolidados["naive-bayes"] = {
-                nome: "Naive Bayes",
-                acuracia: percentual(a.acuracia),
-                precisao: percentual(a.precisao),
-                recall: percentual(a.recall),
-                f1: percentual(a.f1),
-                tempo: tempo.toFixed(1) + " ms"
-            };
-
-            $("metric-acc").textContent = percentual(a.acuracia);
-            $("metric-prec").textContent = percentual(a.precisao);
-            $("metric-rec").textContent = percentual(a.recall);
-            $("metric-f1").textContent = percentual(a.f1);
-            $("metric-hits-errors").textContent =
-                `${a.acertos} acertos / ${a.erros} erros`;
-            $("metric-time").textContent = tempo.toFixed(1) + " ms";
-            $("res-alg-title").textContent =
-                "Naive Bayes treinado e avaliado com a base importada.";
-
-            renderizarMatrizConfusao(classesUnicas, a.matriz);
-            renderizarTabelaConsolidada();
-
-            $("training-progress-box").classList.add("hidden");
-            $("training-results").classList.remove("hidden");
-            esconderAlerta();
-
-        } catch (erro) {
-            $("training-progress-box").classList.add("hidden");
-            mostrarAlerta("Erro no treinamento: " + erro.message);
-        }
-    }, 20);
-}
-
-function renderizarTabelaConsolidada() {
-    const tbody = document.querySelector("#tabela-consolidada tbody");
-    tbody.innerHTML = "";
-
-    Object.values(resultadosConsolidados).forEach(res => {
-        const tr = document.createElement("tr");
-        tr.className = "hover:bg-slate-50";
-
-        [
-            res.nome, res.acuracia, res.precisao,
-            res.recall, res.f1, res.tempo, "Concluído"
-        ].forEach((valor, i) => {
-            const td = document.createElement("td");
-            td.className = "p-3.5";
-            td.textContent = valor;
-
-            if (i === 0) td.classList.add("font-bold", "text-slate-800");
-            if (i === 6) td.classList.add("text-emerald-700");
-
-            tr.appendChild(td);
-        });
-
-        tbody.appendChild(tr);
-    });
-}
-
-/* =========================================================
-   7. CLASSIFICAÇÃO DE NOVAS MENSAGENS
-   ========================================================= */
-
-function classificarTexto() {
-    const texto = $("input-texto-teste").value.trim();
-
-    if (!texto) {
-        mostrarAlerta("Digite uma mensagem para classificar.");
-        return;
-    }
-
-    if (!modeloFinal) {
-        mostrarAlerta("Treine o modelo antes de classificar mensagens.");
-        return;
-    }
-
-    esconderAlerta();
-
-    const previsao = preverNaiveBayes(modeloFinal, texto);
-    const sinaisAtencao = detectarNecessidadeAtendimentoHumano(texto);
-
-    // A classe exibida vem do modelo treinado.
-    // O encaminhamento humano é um alerta separado, não uma classe.
-    $("res-badge").textContent = previsao.classe;
-    $("res-confianca").textContent = percentual(previsao.confianca);
-
-    const explicacao = sinaisAtencao.length
-        ? "ATENÇÃO: foram identificados os seguintes termos: " +
-          sinaisAtencao.join(", ") + ". Encaminhe a mensagem para avaliação " +
-          "humana conforme o protocolo de atendimento. A classe mostrada " +
-          "é a previsão do modelo e não substitui a triagem clínica."
-        : "A classe foi prevista pelo Naive Bayes treinado com a base importada. " +
-          "A confiança é uma probabilidade estimada pelo modelo, não uma " +
-          "medida de certeza clínica.";
-
-    $("res-explicacao").textContent = explicacao;
-
-    const container = $("resultado-container");
-    container.classList.remove("hidden");
-
-    if (sinaisAtencao.length) {
-        container.classList.remove("bg-slate-50", "border-slate-200");
-        container.classList.add("bg-amber-50", "border-amber-400");
-        $("res-badge").className =
-            "px-3 py-1.5 rounded-full text-xs font-bold uppercase " +
-            "tracking-wider bg-amber-100 text-amber-900";
-    } else {
-        container.classList.remove("bg-amber-50", "border-amber-400");
-        container.classList.add("bg-slate-50", "border-slate-200");
-        $("res-badge").className =
-            "px-3 py-1.5 rounded-full text-xs font-bold uppercase " +
-            "tracking-wider bg-indigo-100 text-indigo-800";
-    }
-
-    // Teste manual não tem rótulo real conhecido.
-    // Portanto, não se inventam acertos ou erros.
-    totalTestes++;
-    $("test-count").textContent = totalTestes;
-    $("test-hits").textContent = "—";
-    $("test-errors").textContent = "—";
-
-    adicionarAoHistorico(
-        texto,
-        previsao.classe,
-        percentual(previsao.confianca),
-        sinaisAtencao
-    );
-}
-
-function adicionarAoHistorico(texto, classe, confianca, sinaisAtencao = []) {
-    historicoTestes.unshift({
-        texto,
-        classe,
-        confianca,
-        horario: new Date().toLocaleTimeString("pt-BR"),
-        encaminhar: sinaisAtencao.length > 0,
-        sinais: sinaisAtencao
-    });
-
-    const tbody = document.querySelector("#historico-table tbody");
-    tbody.innerHTML = "";
-
-    historicoTestes.forEach(item => {
-        const tr = document.createElement("tr");
-        tr.className = "hover:bg-slate-50";
-
-        const valores = [
-            item.texto,
-            item.classe,
-            item.confianca,
-            item.horario
-        ];
-
-        valores.forEach((valor, i) => {
-            const td = document.createElement("td");
-            td.className = "p-3.5";
-            td.textContent = valor;
-
-            if (i === 1) {
-                td.classList.add("font-semibold", "text-indigo-700");
-            }
-
-            tr.appendChild(td);
-        });
-
-        if (item.encaminhar) {
-            tr.title = "Encaminhar para avaliação humana: " +
-                item.sinais.join(", ");
-            tr.classList.add("bg-amber-50");
-        }
-
-        tbody.appendChild(tr);
-    });
-}
-
-function limparHistorico() {
-    historicoTestes = [];
-    totalTestes = 0;
-    totalAcertos = 0;
-    totalErros = 0;
-
-    $("test-count").textContent = "0";
-    $("test-hits").textContent = "—";
-    $("test-errors").textContent = "—";
-
-    document.querySelector("#historico-table tbody").innerHTML =
-        '<tr id="empty-history">' +
-        '<td colspan="4" class="p-6 text-center text-slate-400">' +
-        'Nenhum teste realizado ainda.</td></tr>';
-}
-
-/* =========================================================
-   8. RELATÓRIO PDF
-   ========================================================= */
-
-function gerarRelatorioPDF() {
-    if (!avaliacaoAtual) {
-        mostrarAlerta("Treine o modelo antes de gerar o relatório.");
-        return;
-    }
-
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-        mostrarAlerta(
-            "A biblioteca de PDF não foi carregada. Verifique a conexão."
-        );
-        return;
-    }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    doc.text("Relatório de Machine Learning", 14, 20);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text("Aluna: Marcia Regina Godoy", 14, 28);
-    doc.text("Data: " + new Date().toLocaleDateString("pt-BR"), 14, 34);
-    doc.text("Registros: " + datasetBruto.length, 14, 40);
-    doc.text("Classes: " + classesUnicas.length, 14, 46);
-    doc.text("Algoritmo: Naive Bayes Multinomial", 14, 52);
-    doc.text(
-        "Métricas calculadas no conjunto de teste; modelo final treinado com toda a base.",
-        14, 58
-    );
-
-    const a = avaliacaoAtual;
-
-    const linhas = [
-        ["Acurácia", percentual(a.acuracia)],
-        ["Precisão macro", percentual(a.precisao)],
-        ["Recall macro", percentual(a.recall)],
-        ["F1-score macro", percentual(a.f1)],
-        ["Acertos", String(a.acertos)],
-        ["Erros", String(a.erros)],
-        ["Tamanho do teste", String(a.total)]
-    ];
-
-    if (typeof doc.autoTable === "function") {
-        doc.autoTable({
-            startY: 65,
-            head: [["Métrica", "Resultado"]],
-            body: linhas,
-            theme: "grid"
-        });
-    } else {
-        let y = 68;
-        linhas.forEach(linha => {
-            doc.text(linha[0] + ": " + linha[1], 14, y);
-            y += 7;
-        });
-    }
-
-    doc.save("Relatorio_Machine_Learning_Marcia_Godoy.pdf");
-}
-
-/* =========================================================
-   9. REINICIAR E ALERTAS
-   ========================================================= */
-
-function reiniciarTudo() {
-    datasetBruto = [];
-    classesUnicas = [];
-    resultadosConsolidados = {};
-    historicoTestes = [];
-    modeloFinal = null;
-    modeloTreino = null;
-    matrizAtual = null;
-    avaliacaoAtual = null;
-
-    limparHistorico();
-
-    $("csvFile").value = "";
-    $("file-name").textContent = "Nenhum";
-    $("file-size").textContent = "0 KB";
-    $("file-rows").textContent = "0";
-    $("file-status").textContent = "Aguardando envio";
-    $("file-status").className =
-        "text-amber-600 block mt-0.5 font-medium";
-    $("btn-submeter").disabled = true;
-
-    $("preview-tbody").innerHTML = "";
-    $("preview-container").classList.add("hidden");
-    $("training-results").classList.add("hidden");
-    $("training-progress-box").classList.remove("hidden");
-    $("resultado-container").classList.add("hidden");
-    $("input-texto-teste").value = "";
-
-    $("classes-chips-container").innerHTML = "";
-    $("confusion-matrix-box").innerHTML = "";
-    $("stat-total-reg").textContent = "0";
-    $("stat-classes-count").textContent = "0 classes";
-    $("stat-split-abs").textContent = "0 / 0";
-    $("metric-acc").textContent = "0%";
-    $("metric-prec").textContent = "0%";
-    $("metric-rec").textContent = "0%";
-    $("metric-f1").textContent = "0%";
-    $("metric-hits-errors").textContent = "0 / 0";
-    $("metric-time").textContent = "0 ms";
-
-    $("tabela-consolidada").querySelector("tbody").innerHTML =
-        '<tr id="empty-tabela"><td colspan="7" ' +
-        'class="p-6 text-center text-slate-400">' +
-        'Nenhum algoritmo treinado ainda.</td></tr>';
-
-    mostrarSecao("section-dados");
-    atualizarIndicadores(1);
-    esconderAlerta();
-}
-
-function mostrarAlerta(msg) {
-    $("alert-message").textContent = msg;
-    $("alert-box").classList.remove("hidden");
-}
-
-function esconderAlerta() {
-    $("alert-box").classList.add("hidden");
-}
 </script>
