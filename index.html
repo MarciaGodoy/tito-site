@@ -1,820 +1,1090 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Acadêmico de Machine Learning - Multiclasse</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- jsPDF para exportação de relatório em PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/plugin.jspdf.autotable.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .step-inactive { opacity: 0.4; transform: scale(0.98); }
-        .step-active { opacity: 1; border-color: #4f46e5; background-color: #eef2ff; transform: scale(1); }
-        .step-completed { opacity: 1; border-color: #10b981; background-color: #ecfdf5; transform: scale(1); }
-    </style>
-</head>
-<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
 
-    <!-- CABEÇALHO -->
-    <header class="bg-slate-900 text-white shadow-lg border-b border-slate-800 py-4 px-6">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-            <div class="flex items-center space-x-3">
-                <div class="bg-indigo-600 p-3 rounded-xl shadow-md">
-                    <i class="fa-solid fa-brain text-xl text-white"></i>
-                </div>
-                <div>
-                    <h1 class="text-lg font-bold tracking-tight">Simulador Acadêmico de Machine Learning</h1>
-                    <p class="text-xs text-slate-400">Classificação Multiclasse de Conversas e Atendimento • Aluna: <strong>Marcia Regina Godoy</strong></p>
-                </div>
-            </div>
-            <div class="bg-slate-800 px-4 py-2 rounded-xl border border-slate-700 text-xs text-indigo-300 flex items-center gap-2 shadow-inner">
-                <i class="fa-solid fa-shield-halved text-emerald-400"></i>
-                <span>Processamento Local (Navegador)</span>
-            </div>
-        </div>
-    </header>
+<script>
+"use strict";
 
-    <!-- INDICADOR VISUAL DAS ETAPAS -->
-    <nav class="bg-white border-b border-slate-200 shadow-sm py-4 px-6">
-        <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div id="ind-step-1" class="step-active border-2 rounded-xl p-3 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-sm" onclick="irParaEtapa(1)">
-                <i class="fa-solid fa-folder-open text-indigo-600"></i>
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-700">1. Dados</span>
-            </div>
-            <div id="ind-step-2" class="step-inactive border-2 border-slate-200 rounded-xl p-3 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer" onclick="irParaEtapa(2)">
-                <i class="fa-solid fa-robot text-slate-400"></i>
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">2. Algoritmo & Amostra</span>
-            </div>
-            <div id="ind-step-3" class="step-inactive border-2 border-slate-200 rounded-xl p-3 transition-all duration-300 flex items-center justify-center gap-2">
-                <i class="fa-solid fa-chart-pie text-slate-400"></i>
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">3. Avaliação & Matriz</span>
-            </div>
-            <div id="ind-step-4" class="step-inactive border-2 border-slate-200 rounded-xl p-3 transition-all duration-300 flex items-center justify-center gap-2">
-                <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">4. Teste Prático</span>
-            </div>
-        </div>
-    </nav>
+/* =========================================================
+   SIMULADOR ACADÊMICO DE MACHINE LEARNING
+   - Importação robusta de CSV
+   - Naive Bayes Multinomial real
+   - Avaliação com conjunto de teste
+   - Encaminhamento humano para sinais de atenção
+   ========================================================= */
 
-    <!-- CONTEÚDO PRINCIPAL -->
-    <main class="max-w-7xl mx-auto w-full p-4 md:p-8 space-y-6 flex-grow">
+let datasetBruto = [];
+let classesUnicas = [];
+let resultadosConsolidados = {};
+let historicoTestes = [];
+let totalTestes = 0;
+let totalAcertos = 0;
+let totalErros = 0;
+let modeloFinal = null;
+let modeloTreino = null;
+let matrizAtual = null;
+let avaliacaoAtual = null;
 
-        <!-- ALERTA -->
-        <div id="alert-box" class="hidden bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-sm flex items-start gap-3">
-            <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xl mt-0.5"></i>
-            <div>
-                <h3 class="font-semibold text-amber-800">Atenção</h3>
-                <p id="alert-message" class="text-sm text-amber-700"></p>
-            </div>
-        </div>
+const $ = id => document.getElementById(id);
 
-        <!-- ETAPA 1: CARREGAMENTO DE DADOS -->
-        <section id="section-dados" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div class="flex items-center gap-3">
-                    <span class="bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full text-xs">Etapa 1 de 4</span>
-                    <h2 class="text-base font-bold text-slate-800">Carregar Base de Dados (.csv)</h2>
-                </div>
-            </div>
+function normalizar(texto) {
+    return String(texto ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+}
 
-            <p class="text-sm text-slate-600 leading-relaxed">
-                Selecione o arquivo CSV contendo os dados (como <code>Teste_IA_PT_2.csv</code>). O sistema fará a leitura automática das colunas de texto e classe.
-            </p>
+function escaparHTML(valor) {
+    return String(valor ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[c]);
+}
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                <div class="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:border-indigo-500 transition-all bg-slate-50 relative group cursor-pointer shadow-inner">
-                    <input type="file" id="csvFile" accept=".csv, .txt" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="handleFileSelect(event)">
-                    <div class="space-y-3 pointer-events-none">
-                        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto text-xl shadow-sm group-hover:scale-110 transition-transform">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                        </div>
-                        <p class="text-sm font-semibold text-slate-700">Arraste seu arquivo .csv ou clique aqui</p>
-                        <p class="text-xs text-slate-400">Compatível com separadores por vírgula ou ponto e vírgula</p>
-                    </div>
-                </div>
+/* =========================================================
+   1. IDENTIFICAÇÃO DE SINAIS QUE EXIGEM ATENÇÃO HUMANA
 
-                <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm">
-                    <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2">
-                        <i class="fa-solid fa-file-lines text-indigo-600"></i> Informações do Arquivo
-                    </h3>
-                    <div class="grid grid-cols-2 gap-3 text-xs text-slate-600">
-                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs"><strong>Nome:</strong> <span id="file-name" class="text-slate-800 block mt-0.5 font-medium truncate">Nenhum</span></div>
-                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs"><strong>Tamanho:</strong> <span id="file-size" class="text-slate-800 block mt-0.5 font-medium">0 KB</span></div>
-                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs"><strong>Registros:</strong> <span id="file-rows" class="text-slate-800 block mt-0.5 font-medium">0</span></div>
-                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs"><strong>Status:</strong> <span id="file-status" class="text-amber-600 block mt-0.5 font-medium">Aguardando</span></div>
-                    </div>
-                </div>
-            </div>
+   Estas regras NÃO criam classes no modelo.
+   Elas geram um alerta separado da previsão automática.
+   ========================================================= */
 
-            <!-- EXIBIÇÃO DOS 3 PRIMEIROS REGISTROS -->
-            <div id="preview-container" class="hidden space-y-3 pt-4 border-t border-slate-100">
-                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-table text-indigo-600"></i> Amostra: Os 3 Primeiros Registros Submetidos
-                </h3>
-                <div class="overflow-x-auto border border-slate-200 rounded-xl shadow-2xs">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
-                            <tr>
-                                <th class="p-3 font-semibold">#</th>
-                                <th class="p-3 font-semibold">Texto / Conversa</th>
-                                <th class="p-3 font-semibold">Classe / Rótulo</th>
-                            </tr>
-                        </thead>
-                        <tbody id="preview-tbody" class="divide-y divide-slate-100 bg-white"></tbody>
-                    </table>
-                </div>
-            </div>
+function detectarNecessidadeAtendimentoHumano(texto) {
+    const t = normalizar(texto);
 
-            <div class="flex justify-end pt-4">
-                <button onclick="submeterDados()" id="btn-submeter" disabled class="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-medium px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed">
-                    <span>Submeter Dados e Avançar</span> <i class="fa-solid fa-arrow-right"></i>
-                </button>
-            </div>
-        </section>
-
-        <!-- ETAPA 2: CONFIGURAÇÃO E ESCOLHA DO ALGORITMO -->
-        <section id="section-visualizacao" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div class="flex items-center gap-3">
-                    <span class="bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full text-xs">Etapa 2 de 4</span>
-                    <h2 class="text-base font-bold text-slate-800">Características dos Dados & Seleção do Algoritmo</h2>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                    <span class="text-[11px] text-slate-500 uppercase font-semibold">Total de Observações</span>
-                    <p id="stat-total-reg" class="text-xl font-bold text-slate-800 mt-1">0</p>
-                </div>
-                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                    <span class="text-[11px] text-slate-500 uppercase font-semibold">Divisão Treino / Teste</span>
-                    <p id="stat-split-pct" class="text-xl font-bold text-indigo-600 mt-1">80% / 20%</p>
-                </div>
-                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                    <span class="text-[11px] text-slate-500 uppercase font-semibold">Número de Classes</span>
-                    <p id="stat-classes-count" class="text-xl font-bold text-blue-600 mt-1">0 classes</p>
-                </div>
-                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                    <span class="text-[11px] text-slate-500 uppercase font-semibold">Amostras Treino/Teste</span>
-                    <p id="stat-split-abs" class="text-sm font-bold text-slate-700 mt-2">0 / 0</p>
-                </div>
-            </div>
-
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 shadow-2xs">
-                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Rótulos / Classes Mapeadas:</h3>
-                <div id="classes-chips-container" class="flex flex-wrap gap-1.5"></div>
-            </div>
-
-            <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 space-y-4 shadow-2xs">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                    <h3 class="font-bold text-sm text-indigo-900 flex items-center gap-2">
-                        <i class="fa-solid fa-robot text-indigo-600"></i> Selecione o Algoritmo:
-                    </h3>
-                    <select id="select-algoritmo" class="text-xs p-3 border border-indigo-200 rounded-xl bg-white font-semibold text-indigo-900 w-full md:w-80 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="naive-bayes">Naive Bayes</option>
-                        <option value="knn">KNN (K-Nearest Neighbors)</option>
-                        <option value="decision-tree">Árvore de Decisão</option>
-                        <option value="logistic-regression">Regressão Logística</option>
-                    </select>
-                </div>
-                <p id="alg-description" class="text-xs text-indigo-700 leading-relaxed">
-                    <strong>Naive Bayes:</strong> Classificador probabilístico baseado no Teorema de Bayes, ideal para PLN multiclasse.
-                </p>
-            </div>
-
-            <div class="flex justify-between pt-4">
-                <button onclick="voltarParaDados()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-5 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2 cursor-pointer shadow-2xs">
-                    <i class="fa-solid fa-arrow-left"></i> Voltar
-                </button>
-                <button onclick="iniciarTreinamento()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer">
-                    <i class="fa-solid fa-brain"></i> Executar Treinamento e Avaliação
-                </button>
-            </div>
-        </section>
-
-        <!-- ETAPA 3: AVALIAÇÃO E MATRIZ -->
-        <section id="section-treinamento" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div class="flex items-center gap-3">
-                    <span class="bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full text-xs">Etapa 3 de 4</span>
-                    <h2 class="text-base font-bold text-slate-800">Avaliação do Modelo, Matriz de Confusão & Relatório</h2>
-                </div>
-                <button onclick="gerarRelatorioPDF()" class="bg-rose-600 hover:bg-rose-700 text-white font-medium px-4 py-2 rounded-xl text-xs transition-all shadow-sm flex items-center gap-2 cursor-pointer">
-                    <i class="fa-solid fa-file-pdf"></i> Baixar Relatório em PDF
-                </button>
-            </div>
-
-            <div id="training-progress-box" class="space-y-3 py-8 text-center">
-                <div class="inline-block animate-spin text-3xl text-indigo-600 mb-2">
-                    <i class="fa-solid fa-circle-notch"></i>
-                </div>
-                <h3 id="training-status-text" class="font-semibold text-slate-700 text-sm">Treinando modelo multiclasse (validação 80/20)...</h3>
-            </div>
-
-            <div id="training-results" class="hidden space-y-6">
-                <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-center gap-3 shadow-2xs">
-                    <i class="fa-solid fa-circle-check text-emerald-600 text-xl"></i>
-                    <div>
-                        <h4 id="res-alg-title" class="font-bold text-sm">Treinamento Concluído com Sucesso!</h4>
-                        <p class="text-xs text-emerald-700">Métricas e matriz de confusão calculadas a partir do conjunto de teste.</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
-                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
-                        <span class="text-[10px] text-slate-500 uppercase font-semibold">ACURÁCIA</span>
-                        <p id="metric-acc" class="text-lg font-bold text-indigo-600 mt-1">0%</p>
-                    </div>
-                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
-                        <span class="text-[10px] text-slate-500 uppercase font-semibold">PRECISÃO</span>
-                        <p id="metric-prec" class="text-lg font-bold text-blue-600 mt-1">0%</p>
-                    </div>
-                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
-                        <span class="text-[10px] text-slate-500 uppercase font-semibold">RECALL</span>
-                        <p id="metric-rec" class="text-lg font-bold text-violet-600 mt-1">0%</p>
-                    </div>
-                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
-                        <span class="text-[10px] text-slate-500 uppercase font-semibold">F1-ESCORE</span>
-                        <p id="metric-f1" class="text-lg font-bold text-emerald-600 mt-1">0%</p>
-                    </div>
-                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
-                        <span class="text-[10px] text-slate-500 uppercase font-semibold">ACERTOS / ERROS</span>
-                        <p id="metric-hits-errors" class="text-sm font-bold text-slate-700 mt-1.5">0 / 0</p>
-                    </div>
-                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center shadow-2xs">
-                        <span class="text-[10px] text-slate-500 uppercase font-semibold">TEMPO DE TREINO</span>
-                        <p id="metric-time" class="text-sm font-bold text-amber-600 mt-1.5">0 ms</p>
-                    </div>
-                </div>
-
-                <div class="space-y-3 pt-2">
-                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-                        <i class="fa-solid fa-table-cells text-indigo-600"></i> Matriz de Confusão (Validação Multiclasse)
-                    </h3>
-                    <div id="confusion-matrix-box" class="overflow-x-auto border border-slate-200 rounded-2xl p-4 bg-slate-50"></div>
-                </div>
-
-                <div class="space-y-3 pt-4 border-t border-slate-100">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-                            <i class="fa-solid fa-table text-indigo-600"></i> Relatório Consolidado (Aluna: Marcia Regina Godoy)
-                        </h3>
-                    </div>
-                    <div class="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs">
-                        <table id="tabela-consolidada" class="w-full text-left border-collapse text-xs">
-                            <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
-                                <tr>
-                                    <th class="p-3.5 font-semibold">Algoritmo</th>
-                                    <th class="p-3.5 font-semibold">Acurácia</th>
-                                    <th class="p-3.5 font-semibold">Precisão</th>
-                                    <th class="p-3.5 font-semibold">Recall</th>
-                                    <th class="p-3.5 font-semibold">F1-Score</th>
-                                    <th class="p-3.5 font-semibold">Tempo</th>
-                                    <th class="p-3.5 font-semibold">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-                                <tr id="empty-tabela">
-                                    <td colspan="7" class="p-6 text-center text-slate-400">Nenhum algoritmo treinado ainda.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="flex flex-col md:flex-row justify-between items-center gap-3 pt-4">
-                    <button onclick="voltarParaAlgoritmo()" class="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-5 py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs">
-                        <i class="fa-solid fa-arrows-rotate"></i> 🔄 Trocar / Selecionar Outro Algoritmo
-                    </button>
-                    <div class="flex gap-3 w-full md:w-auto">
-                        <button onclick="voltarParaDados()" class="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs">
-                            <i class="fa-solid fa-arrow-left"></i> Voltar aos Dados
-                        </button>
-                        <button onclick="irParaTeste()" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer">
-                            <span>Avançar para Teste Prático</span> <i class="fa-solid fa-arrow-right"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ETAPA 4: TESTE PRÁTICO -->
-        <section id="section-teste" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div class="flex items-center gap-3">
-                    <span class="bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full text-xs">Etapa 4 de 4</span>
-                    <h2 class="text-base font-bold text-slate-800">Testar o Modelo com uma Nova Mensagem & Histórico</h2>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="space-y-4">
-                    <label class="block text-sm font-semibold text-slate-700">Digite uma nova frase para teste:</label>
-                    <textarea id="input-texto-teste" rows="3" class="w-full p-4 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-2xs bg-slate-50" placeholder="Ex: Gostaria de confirmar o horário da minha próxima consulta..."></textarea>
-                    
-                    <div class="flex gap-2">
-                        <button onclick="classificarTexto()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer">
-                            <i class="fa-solid fa-wand-magic"></i> Classificar Mensagem
-                        </button>
-                    </div>
-
-                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Desempenho da Sessão de Testes</h4>
-                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
-                            <div class="bg-white p-2.5 rounded-xl border">Testes: <strong id="test-count" class="text-slate-800">0</strong></div>
-                            <div class="bg-white p-2.5 rounded-xl border">Acertos estimados: <strong id="test-hits" class="text-emerald-600">0</strong></div>
-                            <div class="bg-white p-2.5 rounded-xl border">Erros estimados: <strong id="test-errors" class="text-rose-600">0</strong></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="resultado-container" class="hidden bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4 shadow-2xs flex flex-col justify-between">
-                    <div class="space-y-3">
-                        <h3 class="font-bold text-sm text-slate-800">Resultado da Classificação</h3>
-                        <div class="flex items-center gap-3">
-                            <span id="res-badge" class="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800"></span>
-                            <span class="text-xs text-slate-500">Confiança da Previsão: <strong id="res-confianca" class="text-indigo-600">0%</strong></span>
-                        </div>
-                        <div class="bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1">
-                            <strong class="text-indigo-900 block font-semibold">Explicação do Resultado:</strong>
-                            <p id="res-explicacao">O modelo analisou os termos presentes no texto e determinou a classe correspondente.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="space-y-3 pt-6 border-t border-slate-100">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-                        <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> Histórico de Classificações Realizadas
-                    </h3>
-                    <button onclick="limparHistorico()" class="text-xs text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1 cursor-pointer">
-                        <i class="fa-solid fa-trash-can"></i> Limpar Histórico
-                    </button>
-                </div>
-                <div class="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs">
-                    <table id="historico-table" class="w-full text-left border-collapse text-xs">
-                        <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
-                            <tr>
-                                <th class="p-3.5 font-semibold">Texto Avaliado</th>
-                                <th class="p-3.5 font-semibold">Classe Prevista</th>
-                                <th class="p-3.5 font-semibold">Confiança</th>
-                                <th class="p-3.5 font-semibold">Horário</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 bg-white">
-                            <tr id="empty-history">
-                                <td colspan="4" class="p-6 text-center text-slate-400">Nenhum teste realizado ainda.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="flex justify-between items-center pt-6 border-t border-slate-100">
-                <button onclick="voltarParaAvaliacao()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-5 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2 cursor-pointer shadow-2xs">
-                    <i class="fa-solid fa-arrow-left"></i> Voltar à Avaliação & Tabela
-                </button>
-                <button onclick="reiniciarTudo()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-medium px-5 py-2.5 rounded-xl text-sm transition-all flex items-center gap-2 cursor-pointer shadow-2xs">
-                    <i class="fa-solid fa-rotate-right"></i> Reiniciar Tudo / Novo Dataset
-                </button>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- RODAPÉ -->
-    <footer class="bg-slate-900 text-slate-400 py-6 px-6 text-center text-xs space-y-2 border-t border-slate-800">
-        <p>Simulador Acadêmico Multiclasse • Aluna: <strong>Marcia Regina Godoy</strong></p>
-    </footer>
-
-    <!-- SCRIPT CORRIGIDO COM LEITOR ROBUSTO DE CSV -->
-    <script>
-        let datasetBruto = [];
-        let classesUnicas = [];
-        let resultadosConsolidados = {};
-        let historicoTestes = [];
-        let totalTestes = 0;
-        let totalAcertos = 0;
-        let totalErros = 0;
-
-        document.getElementById('select-algoritmo').addEventListener('change', function(e) {
-            const desc = {
-                'naive-bayes': "<strong>Naive Bayes:</strong> Classificador probabilístico baseado no Teorema de Bayes, rápido e eficaz para categorização multiclasse.",
-                'knn': "<strong>KNN (K-Nearest Neighbors):</strong> Classifica com base na similaridade vetorial com os vizinhos mais próximos.",
-                'decision-tree': "<strong>Árvore de Decisão:</strong> Constrói regras hierárquicas baseadas em palavras-chave discriminativas.",
-                'logistic-regression': "<strong>Regressão Logística:</strong> Modela pesos associados para prever a probabilidade da classe correta."
-            };
-            document.getElementById('alg-description').innerHTML = desc[e.target.value];
-        });
-
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            document.getElementById('file-name').innerText = file.name;
-            document.getElementById('file-size').innerText = (file.size / 1024).toFixed(1) + " KB";
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const conteudo = e.target.result;
-                processarCSVRobusto(conteudo);
-            };
-            reader.readAsText(file, 'UTF-8');
+    const regras = [
+        {
+            nome: "sangramento",
+            regex: /\bsangramento(s)?\b|\bsangrando\b|\bsangrar\b/
+        },
+        {
+            nome: "hemorragia",
+            regex: /\bhemorragia(s)?\b/
+        },
+        {
+            nome: "dor",
+            regex: /\bdor(es)?\b|\bdolorido(a|s)?\b/
+        },
+        {
+            nome: "febre",
+            regex: /\bfebre(s)?\b|\bfebril\b/
+        },
+        {
+            nome: "pressão alta",
+            regex: /\bpressao alta\b|\bpressao arterial alta\b|\bpressao elevada\b|\bpressao muito alta\b|\bhipertensao\b/
+        },
+        {
+            nome: "bebê não se mexe",
+            regex: /\bbebe nao se mexe\b|\bbebe nao mexe\b|\bnao sinto o bebe mexer\b|\bbebe parou de mexer\b|\bmovimentos do bebe diminuiram\b|\bmovimentos fetais reduzidos\b/
+        },
+        {
+            nome: "falta de ar",
+            regex: /\bfalta de ar\b|\bdificuldade para respirar\b|\bdificuldade de respirar\b|\bnao consigo respirar\b/
         }
+    ];
 
-        function processarCSVRobusto(textoCSV) {
-            try {
-                const linhas = textoCSV.split(/\r\n|\n/).filter(l => l.trim() !== "");
-                if (linhas.length < 2) {
-                    mostrarAlerta("O arquivo CSV parece estar vazio ou sem linhas suficientes.");
-                    return;
-                }
+    return regras
+        .filter(regra => regra.regex.test(t))
+        .map(regra => regra.nome);
+}
 
-                // Detectar delimitador (, ou ;)
-                const primeiraLinha = linhas[0];
-                const delimitador = primeiraLinha.includes(';') ? ';' : ',';
+/* =========================================================
+   2. LEITURA ROBUSTA DE CSV
 
-                datasetBruto = [];
+   Trata aspas, delimitadores dentro de campos e quebras
+   de linha dentro de campos entre aspas.
+   ========================================================= */
 
-                // Começar da linha 1 (ignorando cabeçalho)
-                for (let i = 1; i < linhas.length; i++) {
-                    let linha = linhas[i].trim();
-                    if (!linha) continue;
+function analisarCSV(conteudo, delimitador) {
+    const linhas = [];
+    let linha = [];
+    let campo = "";
+    let dentroAspas = false;
 
-                    // Parser simples que suporta colunas delimitadas
-                    let partes = linha.split(delimitador);
-                    if (partes.length >= 2) {
-                        let texto = partes[0].trim().replace(/^["']|["']$/g, '');
-                        let classe = partes[partes.length - 1].trim().replace(/^["']|["']$/g, '');
-                        
-                        if (texto && classe) {
-                            datasetBruto.push({ texto, classe });
-                        }
-                    }
-                }
+    conteudo = String(conteudo ?? "")
+        .replace(/^\uFEFF/, "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n");
 
-                if (datasetBruto.length === 0) {
-                    mostrarAlerta("Não foi possível extrair dados válidos. Certifique-se de que o arquivo possui colunas 'texto' e 'classe'.");
-                    return;
-                }
+    for (let i = 0; i < conteudo.length; i++) {
+        const ch = conteudo[i];
 
-                classesUnicas = [...new Set(datasetBruto.map(d => d.classe))];
-                document.getElementById('file-rows').innerText = datasetBruto.length;
-                document.getElementById('file-status').innerText = "Carregado com sucesso";
-                document.getElementById('btn-submeter').removeAttribute('disabled');
-
-                renderizarPrimeirosRegistros();
-                esconderAlerta();
-            } catch (err) {
-                mostrarAlerta("Erro ao processar o arquivo CSV: " + err.message);
+        if (ch === '"') {
+            if (dentroAspas && conteudo[i + 1] === '"') {
+                campo += '"';
+                i++;
+            } else {
+                dentroAspas = !dentroAspas;
             }
-        }
-
-        function renderizarPrimeirosRegistros() {
-            const tbody = document.getElementById('preview-tbody');
-            tbody.innerHTML = '';
-            const amostra = datasetBruto.slice(0, 3);
-            
-            amostra.forEach((item, index) => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50">
-                        <td class="p-3 font-semibold text-slate-500">${index + 1}</td>
-                        <td class="p-3 text-slate-700 truncate max-w-md">${item.texto}</td>
-                        <td class="p-3 font-semibold text-indigo-700">${item.classe}</td>
-                    </tr>
-                `;
-            });
-            document.getElementById('preview-container').classList.remove('hidden');
-        }
-
-        function submeterDados() {
-            if (datasetBruto.length === 0) return;
-            if (classesUnicas.length < 2) {
-                mostrarAlerta("O dataset precisa ter pelo menos duas classes distintas.");
-                return;
+        } else if (ch === delimitador && !dentroAspas) {
+            linha.push(campo);
+            campo = "";
+        } else if (ch === "\n" && !dentroAspas) {
+            linha.push(campo);
+            if (linha.some(v => String(v).trim() !== "")) {
+                linhas.push(linha);
             }
-
-            const total = datasetBruto.length;
-            const treinoObs = Math.floor(total * 0.8);
-            const testeObs = total - treinoObs;
-
-            document.getElementById('stat-total-reg').innerText = total;
-            document.getElementById('stat-split-pct').innerText = "80% / 20%";
-            document.getElementById('stat-classes-count').innerText = classesUnicas.length + " classes";
-            document.getElementById('stat-split-abs').innerText = `${treinoObs} treino / ${testeObs} teste`;
-
-            const chipsContainer = document.getElementById('classes-chips-container');
-            chipsContainer.innerHTML = '';
-            classesUnicas.forEach(c => {
-                chipsContainer.innerHTML += `<span class="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-semibold px-3 py-1 rounded-xl shadow-2xs">${c}</span>`;
-            });
-
-            document.getElementById('section-dados').classList.add('hidden');
-            document.getElementById('section-visualizacao').classList.remove('hidden');
-            atualizarIndicadores(2);
-            esconderAlerta();
+            linha = [];
+            campo = "";
+        } else {
+            campo += ch;
         }
+    }
 
-        function voltarParaDados() {
-            document.getElementById('section-visualizacao').classList.add('hidden');
-            document.getElementById('section-treinamento').classList.add('hidden');
-            document.getElementById('section-dados').classList.remove('hidden');
-            atualizarIndicadores(1);
-        }
+    if (dentroAspas) {
+        throw new Error(
+            "Há aspas não fechadas no CSV. Verifique o arquivo."
+        );
+    }
 
-        function voltarParaAlgoritmo() {
-            document.getElementById('section-treinamento').classList.add('hidden');
-            document.getElementById('section-visualizacao').classList.remove('hidden');
-            atualizarIndicadores(2);
-        }
+    linha.push(campo);
+    if (linha.some(v => String(v).trim() !== "")) {
+        linhas.push(linha);
+    }
 
-        function voltarParaAvaliacao() {
-            document.getElementById('section-teste').classList.add('hidden');
-            document.getElementById('section-treinamento').classList.remove('hidden');
-            atualizarIndicadores(3);
-        }
+    return linhas;
+}
 
-        function irParaTeste() {
-            document.getElementById('section-treinamento').classList.add('hidden');
-            document.getElementById('section-teste').classList.remove('hidden');
-            atualizarIndicadores(4);
-        }
+function contarDelimitadores(cabecalho, delimitador) {
+    let dentroAspas = false;
+    let total = 0;
 
-        function irParaEtapa(etapa) {
-            if (etapa === 1) voltarParaDados();
-            else if (etapa === 2 && datasetBruto.length > 0) {
-                document.getElementById('section-dados').classList.add('hidden');
-                document.getElementById('section-treinamento').classList.add('hidden');
-                document.getElementById('section-teste').classList.add('hidden');
-                document.getElementById('section-visualizacao').classList.remove('hidden');
-                atualizarIndicadores(2);
+    for (let i = 0; i < cabecalho.length; i++) {
+        const ch = cabecalho[i];
+
+        if (ch === '"') {
+            if (dentroAspas && cabecalho[i + 1] === '"') {
+                i++;
+            } else {
+                dentroAspas = !dentroAspas;
             }
+        } else if (ch === delimitador && !dentroAspas) {
+            total++;
         }
+    }
 
-        function atualizarIndicadores(etapa) {
-            for (let i = 1; i <= 4; i++) {
-                const el = document.getElementById(`ind-step-${i}`);
-                el.className = "border-2 rounded-xl p-3 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer " + 
-                    (i < etapa ? "step-completed border-emerald-500 bg-emerald-50 text-emerald-800" : i === etapa ? "step-active border-indigo-600 bg-indigo-50 text-indigo-900 shadow-sm" : "step-inactive border-slate-200 bg-white text-slate-400");
-            }
-        }
+    return total;
+}
 
-        function iniciarTreinamento() {
-            document.getElementById('section-visualizacao').classList.add('hidden');
-            document.getElementById('section-treinamento').classList.remove('hidden');
-            document.getElementById('training-progress-box').classList.remove('hidden');
-            document.getElementById('training-results').classList.add('hidden');
-            atualizarIndicadores(3);
+function identificarColuna(cabecalhos, tipo) {
+    const nomes = cabecalhos.map((nome, indice) => ({
+        nome: normalizar(nome).replace(/[^a-z0-9]/g, ""),
+        indice
+    }));
 
-            const algoritmoKey = document.getElementById('select-algoritmo').value;
-            const nomesAlgoritmos = {
-                'naive-bayes': 'Naive Bayes',
-                'knn': 'KNN (K-Nearest Neighbors)',
-                'decision-tree': 'Árvore de Decisão',
-                'logistic-regression': 'Regressão Logística'
-            };
-            const nomeAlgoritmo = nomesAlgoritmos[algoritmoKey];
-            const startTime = performance.now();
+    const aliases = tipo === "texto"
+        ? ["texto", "mensagem", "mensagens", "text", "frase", "conversa"]
+        : ["classe", "classes", "rotulo", "label", "categoria", "target"];
 
-            setTimeout(() => {
-                const endTime = performance.now();
-                const tempoExecucao = (endTime - startTime).toFixed(1);
+    for (const alias of aliases) {
+        const encontrada = nomes.find(item => item.nome === alias);
+        if (encontrada) return encontrada.indice;
+    }
 
-                let acc = 0.9812, prec = 0.9837, rec = 0.9812, f1 = 0.9811;
-                if (algoritmoKey === 'knn') { acc = 1.00; prec = 1.00; rec = 1.00; f1 = 1.00; }
-                else if (algoritmoKey === 'decision-tree') { acc = 0.9938; prec = 0.9940; rec = 0.9938; f1 = 0.9937; }
-                else if (algoritmoKey === 'logistic-regression') { acc = 1.00; prec = 1.00; rec = 1.00; f1 = 1.00; }
-                else if (algoritmoKey === 'naive-bayes') { acc = 0.9812; prec = 0.9837; rec = 0.9812; f1 = 0.9811; }
+    return -1;
+}
 
-                const totalTeste = Math.floor(datasetBruto.length * 0.2);
-                const acertos = Math.round(totalTeste * acc);
-                const erros = totalTeste - acertos;
+function handleFileSelect(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
 
-                resultadosConsolidados[algoritmoKey] = {
-                    nome: nomeAlgoritmo,
-                    acuracia: (acc * 100).toFixed(2) + "%",
-                    precisao: (prec * 100).toFixed(2) + "%",
-                    recall: (rec * 100).toFixed(2) + "%",
-                    f1: (f1 * 100).toFixed(2) + "%",
-                    tempo: tempoExecucao + " ms"
-                };
+    esconderAlerta();
 
-                document.getElementById('metric-acc').innerText = (acc * 100).toFixed(2) + "%";
-                document.getElementById('metric-prec').innerText = (prec * 100).toFixed(2) + "%";
-                document.getElementById('metric-rec').innerText = (rec * 100).toFixed(2) + "%";
-                document.getElementById('metric-f1').innerText = (f1 * 100).toFixed(2) + "%";
-                document.getElementById('metric-hits-errors').innerText = `${acertos} acertos / ${erros} erros`;
-                document.getElementById('metric-time').innerText = tempoExecucao + " ms";
-                document.getElementById('res-alg-title').innerText = `Algoritmo "${nomeAlgoritmo}" treinado com sucesso!`;
+    $("file-name").textContent = file.name;
+    $("file-size").textContent =
+        (file.size / 1024).toFixed(1) + " KB";
+    $("file-rows").textContent = "Lendo...";
+    $("file-status").textContent = "Processando";
+    $("file-status").className =
+        "text-amber-600 block mt-0.5 font-medium";
+    $("btn-submeter").disabled = true;
 
-                renderizarMatrizConfusaoSimulada(classesUnicas, acc);
-                renderizarTabelaConsolidada();
+    const reader = new FileReader();
 
-                document.getElementById('training-progress-box').classList.add('hidden');
-                document.getElementById('training-results').classList.remove('hidden');
-            }, 800);
-        }
-
-        function renderizarMatrizConfusaoSimulada(classes, acuracia) {
-            const box = document.getElementById('confusion-matrix-box');
-            let html = `<div class="text-xs text-slate-500 mb-2">Matriz de Confusão Multiclasse (Acurácia: ${(acuracia*100).toFixed(1)}%)</div>
-                        <div class="overflow-x-auto"><table class="w-full text-center border-collapse text-[11px]"><thead><tr class="bg-slate-200 text-slate-700"><th class="p-2 border">Real \\ Prev</th>`;
-            
-            const classesExibir = classes.slice(0, 6);
-            classesExibir.forEach(c => {
-                html += `<th class="p-2 border truncate max-w-[100px]">${c}</th>`;
-            });
-            html += `</tr></thead><tbody>`;
-
-            classesExibir.forEach((real, i) => {
-                html += `<tr><th class="p-2 border bg-slate-100 text-left truncate max-w-[100px]">${real}</th>`;
-                classesExibir.forEach((prev, j) => {
-                    let val = (i === j) ? Math.floor(Math.random() * 10) + 20 : (Math.random() > 0.8 ? 1 : 0);
-                    let bg = (i === j) ? 'bg-emerald-100 font-bold text-emerald-900' : (val > 0 ? 'bg-rose-50 text-rose-800' : 'text-slate-400');
-                    html += `<td class="p-2 border ${bg}">${val}</td>`;
-                });
-                html += `</tr>`;
-            });
-            html += `</tbody></table></div>`;
-            box.innerHTML = html;
-        }
-
-        function renderizarTabelaConsolidada() {
-            const tbody = document.querySelector('#tabela-consolidada tbody');
-            document.getElementById('empty-tabela')?.remove();
-            tbody.innerHTML = '';
-
-            for (let key in resultadosConsolidados) {
-                let res = resultadosConsolidados[key];
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="p-3.5 font-bold text-slate-800">${res.nome}</td>
-                        <td class="p-3.5 text-indigo-600 font-semibold">${res.acuracia}</td>
-                        <td class="p-3.5 text-blue-600">${res.precisao}</td>
-                        <td class="p-3.5 text-violet-600">${res.recall}</td>
-                        <td class="p-3.5 text-emerald-600 font-bold">${res.f1}</td>
-                        <td class="p-3.5 text-amber-600">${res.tempo}</td>
-                        <td class="p-3.5"><span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-1 rounded-full">Concluído</span></td>
-                    </tr>
-                `;
-            }
-        }
-
-        function gerarRelatorioPDF() {
-            if (Object.keys(resultadosConsolidados).length === 0) {
-                mostrarAlerta("Treine pelo menos um algoritmo antes de gerar o relatório em PDF.");
-                return;
-            }
-
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(16);
-            doc.text("Relatório de Desempenho - Machine Learning", 14, 20);
-
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "normal");
-            doc.text("Aluna: Marcia Regina Godoy", 14, 28);
-            doc.text(`Data de Geração: ${new Date().toLocaleDateString('pt-BR')}`, 14, 34);
-            doc.text(`Total de Observações: ${datasetBruto.length} registros (80% Treino / 20% Teste)`, 14, 40);
-            doc.text(`Número de Classes: ${classesUnicas.length}`, 14, 46);
-
-            const tableColumns = ["Algoritmo", "Acurácia", "Precisão", "Recall", "F1-Score", "Tempo"];
-            const tableRows = [];
-
-            for (let key in resultadosConsolidados) {
-                let r = resultadosConsolidados[key];
-                tableRows.push([r.nome, r.acuracia, r.precisao, r.recall, r.f1, r.tempo]);
-            }
-
-            doc.autoTable({
-                startY: 54,
-                head: [tableColumns],
-                body: tableRows,
-                theme: 'grid',
-                headStyles: { fillColor: [79, 70, 229] }
-            });
-
-            doc.save("Relatorio_Machine_Learning_Marcia_Godoy.pdf");
-        }
-
-        function classificarTexto() {
-            const texto = document.getElementById('input-texto-teste').value.trim();
-            if (!texto) {
-                mostrarAlerta("Digite um texto válido para testar.");
-                return;
-            }
-
-            esconderAlerta();
-
-            let classePrevista = classesUnicas[0];
-            const t = texto.toLowerCase();
-            
-            if (t.includes('consulta') || t.includes('agendar') || t.includes('marcado')) classePrevista = "agendamento_consulta";
-            else if (t.includes('receita') || t.includes('medicamento') || t.includes('remédio')) classePrevista = "medicamentos";
-            else if (t.includes('exame') || t.includes('resultado') || t.includes('laudo')) classePrevista = "exames_resultados";
-            else if (t.includes('ajuda') || t.includes('socorro') || t.includes('urgente') || t.includes('imediata')) classePrevista = "pedido_ajuda_imediata";
-            else if (t.includes('sintoma') || t.includes('dor') || t.includes('febre') || t.includes('mal')) classePrevista = "relato_sintoma";
-            else if (t.includes('gestação') || t.includes('gravidez') || t.includes('gestante')) classePrevista = "duvida_gestacao";
-            else if (t.includes('lembrete') || t.includes('comparecerei') || t.includes('informar')) classePrevista = "acompanhamento_lembrete";
-            else classePrevista = "informacao_servico";
-
-            const confianca = (95 + Math.random() * 4.5).toFixed(1) + "%";
-
-            totalTestes++;
-            let acertou = Math.random() < 0.95;
-            if (acertou) totalAcertos++; else totalErros++;
-
-            document.getElementById('test-count').innerText = totalTestes;
-            document.getElementById('test-hits').innerText = totalAcertos;
-            document.getElementById('test-errors').innerText = totalErros;
-
-            const containerRes = document.getElementById('resultado-container');
-            containerRes.classList.remove('hidden');
-
-            const badge = document.getElementById('res-badge');
-            badge.innerText = `Classe Prevista: ${classePrevista}`;
-            
-            document.getElementById('res-confianca').innerText = confianca;
-            document.getElementById('res-explicacao').innerText = `O algoritmo identificou termos e padrões textuais correspondentes à categoria "${classePrevista}". A alta confiança (${confianca}) decorre da forte correlação entre as palavras-chave do texto enviado e o vocabulário treinado nesta classe.`;
-
-            adicionarAoHistorico(texto, classePrevista, confianca);
-        }
-
-        function adicionarAoHistorico(texto, classe, confianca) {
-            historicoTestes.unshift({
-                texto: texto,
-                classe: classe,
-                confianca: confianca,
-                horario: new Date().toLocaleTimeString()
-            });
-
-            const tbody = document.querySelector('#historico-table tbody');
-            document.getElementById('empty-history')?.remove();
-
-            tbody.innerHTML = '';
-            historicoTestes.exports = historicoTestes.forEach(item => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="p-3.5 text-slate-700 truncate max-w-xs">${item.texto}</td>
-                        <td class="p-3.5 font-semibold uppercase text-indigo-700">${item.classe}</td>
-                        <td class="p-3.5 text-indigo-600 font-medium">${item.confianca}</td>
-                        <td class="p-3.5 text-slate-400">${item.horario}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        function limparHistorico() {
-            historicoTestes = [];
-            const tbody = document.querySelector('#historico-table tbody');
-            tbody.innerHTML = `<tr id="empty-history"><td colspan="4" class="p-6 text-center text-slate-400">Nenhum teste realizado ainda.</td></tr>`;
-        }
-
-        function reiniciarTudo() {
+    reader.onload = function(e) {
+        try {
+            processarCSVRobusto(e.target.result);
+        } catch (erro) {
             datasetBruto = [];
             classesUnicas = [];
-            resultadosConsolidados = {};
-            historicoTestes = [];
-            totalTestes = 0;
-            totalAcertos = 0;
-            totalErros = 0;
+            $("file-rows").textContent = "0";
+            $("file-status").textContent = "Erro na leitura";
+            $("file-status").className =
+                "text-rose-600 block mt-0.5 font-medium";
+            mostrarAlerta(erro.message || "Não foi possível ler o CSV.");
+        }
+    };
 
-            document.getElementById('csvFile').value = '';
-            document.getElementById('file-name').innerText = "Nenhum";
-            document.getElementById('file-size').innerText = "0 KB";
-            document.getElementById('file-rows').innerText = "0";
-            document.getElementById('file-status').innerText = "Aguardando envio";
-            document.getElementById('btn-submeter').setAttribute('disabled', 'true');
-            document.getElementById('preview-container').classList.add('hidden');
-            limparHistorico();
+    reader.onerror = function() {
+        mostrarAlerta(
+            "Falha na leitura do arquivo. Tente selecionar o CSV novamente."
+        );
+        $("file-status").textContent = "Falha na leitura";
+    };
 
-            document.getElementById('section-teste').classList.add('hidden');
-            document.getElementById('section-treinamento').classList.add('hidden');
-            document.getElementById('section-visualizacao').classList.add('hidden');
-            document.getElementById('section-dados').classList.remove('hidden');
+    reader.readAsText(file, "UTF-8");
+}
 
-            atualizarIndicadores(1);
+function processarCSVRobusto(conteudo) {
+    const primeiraLinha = String(conteudo)
+        .replace(/^\uFEFF/, "")
+        .split(/\r\n|\n|\r/)[0] || "";
+
+    const candidatos = [",", ";", "\t"];
+    const delimitador = candidatos
+        .map(d => ({ d, n: contarDelimitadores(primeiraLinha, d) }))
+        .sort((a, b) => b.n - a.n)[0].d;
+
+    const linhas = analisarCSV(conteudo, delimitador);
+
+    if (linhas.length < 2) {
+        throw new Error(
+            "O arquivo precisa conter um cabeçalho e pelo menos um registro."
+        );
+    }
+
+    const cabecalhos = linhas[0].map(v => String(v).trim());
+    const colunaTexto = identificarColuna(cabecalhos, "texto");
+    const colunaClasse = identificarColuna(cabecalhos, "classe");
+
+    if (colunaTexto < 0 || colunaClasse < 0) {
+        throw new Error(
+            "Não encontrei as colunas texto e classe. " +
+            "Confira se o cabeçalho contém exatamente esses nomes."
+        );
+    }
+
+    const novosDados = [];
+    let linhasInvalidas = 0;
+
+    for (let i = 1; i < linhas.length; i++) {
+        const campos = linhas[i];
+        const texto = String(campos[colunaTexto] ?? "").trim();
+        const classe = String(campos[colunaClasse] ?? "").trim();
+
+        if (!texto || !classe) {
+            linhasInvalidas++;
+            continue;
+        }
+
+        novosDados.push({ texto, classe });
+    }
+
+    if (novosDados.length === 0) {
+        throw new Error(
+            "Nenhum registro válido foi encontrado nas colunas texto e classe."
+        );
+    }
+
+    datasetBruto = novosDados;
+    classesUnicas = [...new Set(datasetBruto.map(d => d.classe))]
+        .sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+    $("file-rows").textContent = datasetBruto.length;
+    $("file-status").textContent = "Carregado com sucesso";
+    $("file-status").className =
+        "text-emerald-600 block mt-0.5 font-medium";
+    $("btn-submeter").disabled = false;
+
+    renderizarPrimeirosRegistros();
+    esconderAlerta();
+
+    let mensagem =
+        `CSV importado: ${datasetBruto.length} mensagens e ` +
+        `${classesUnicas.length} classes.`;
+
+    if (linhasInvalidas > 0) {
+        mensagem += ` ${linhasInvalidas} linha(s) vazia(s) ou incompleta(s) foram ignoradas.`;
+    }
+
+    console.info(mensagem);
+}
+
+function renderizarPrimeirosRegistros() {
+    const tbody = $("preview-tbody");
+    tbody.innerHTML = "";
+
+    datasetBruto.slice(0, 3).forEach((item, i) => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50";
+
+        [i + 1, item.texto, item.classe].forEach((valor, j) => {
+            const td = document.createElement("td");
+            td.className = j === 0
+                ? "p-3 font-semibold text-slate-500"
+                : j === 2
+                    ? "p-3 font-semibold text-indigo-700"
+                    : "p-3 text-slate-700";
+
+            td.textContent = valor;
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+
+    $("preview-container").classList.remove("hidden");
+}
+
+/* =========================================================
+   3. NAVEGAÇÃO
+   ========================================================= */
+
+function atualizarIndicadores(etapa) {
+    for (let i = 1; i <= 4; i++) {
+        const el = $(`ind-step-${i}`);
+        if (!el) continue;
+
+        el.className =
+            "border-2 rounded-xl p-3 transition-all duration-300 " +
+            "flex items-center justify-center gap-2 cursor-pointer " +
+            (i < etapa
+                ? "step-completed border-emerald-500 bg-emerald-50 text-emerald-800"
+                : i === etapa
+                    ? "step-active border-indigo-600 bg-indigo-50 text-indigo-900 shadow-sm"
+                    : "step-inactive border-slate-200 bg-white text-slate-400");
+    }
+}
+
+function mostrarSecao(id) {
+    [
+        "section-dados",
+        "section-visualizacao",
+        "section-treinamento",
+        "section-teste"
+    ].forEach(secao => $(secao).classList.add("hidden"));
+
+    $(id).classList.remove("hidden");
+}
+
+function voltarParaDados() {
+    mostrarSecao("section-dados");
+    atualizarIndicadores(1);
+}
+
+function voltarParaAlgoritmo() {
+    mostrarSecao("section-visualizacao");
+    atualizarIndicadores(2);
+}
+
+function voltarParaAvaliacao() {
+    mostrarSecao("section-treinamento");
+    atualizarIndicadores(3);
+}
+
+function irParaTeste() {
+    if (!modeloFinal) {
+        mostrarAlerta("Treine o modelo antes de realizar testes.");
+        return;
+    }
+
+    mostrarSecao("section-teste");
+    atualizarIndicadores(4);
+}
+
+function irParaEtapa(etapa) {
+    if (etapa === 1) {
+        voltarParaDados();
+    } else if (etapa === 2 && datasetBruto.length > 0) {
+        mostrarSecao("section-visualizacao");
+        atualizarIndicadores(2);
+    } else if (etapa === 3 && avaliacaoAtual) {
+        voltarParaAvaliacao();
+    } else if (etapa === 4 && modeloFinal) {
+        irParaTeste();
+    }
+}
+
+/* =========================================================
+   4. PREPARAÇÃO DOS DADOS E NAIVE BAYES MULTINOMIAL
+   ========================================================= */
+
+function tokenizar(texto) {
+    return normalizar(texto).match(/[\p{L}\p{N}]+/gu) || [];
+}
+
+function embaralhar(array) {
+    const resultado = array.slice();
+
+    for (let i = resultado.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [resultado[i], resultado[j]] = [resultado[j], resultado[i]];
+    }
+
+    return resultado;
+}
+
+function dividirTreinoTeste(dados) {
+    const porClasse = new Map();
+
+    dados.forEach(item => {
+        if (!porClasse.has(item.classe)) {
+            porClasse.set(item.classe, []);
+        }
+        porClasse.get(item.classe).push(item);
+    });
+
+    const treino = [];
+    const teste = [];
+
+    for (const grupo of porClasse.values()) {
+        const grupoEmbaralhado = embaralhar(grupo);
+
+        if (grupoEmbaralhado.length === 1) {
+            treino.push(grupoEmbaralhado[0]);
+            continue;
+        }
+
+        let nTeste = Math.floor(grupoEmbaralhado.length * 0.2);
+        nTeste = Math.max(1, nTeste);
+        nTeste = Math.min(nTeste, grupoEmbaralhado.length - 1);
+
+        teste.push(...grupoEmbaralhado.slice(0, nTeste));
+        treino.push(...grupoEmbaralhado.slice(nTeste));
+    }
+
+    return {
+        treino: embaralhar(treino),
+        teste: embaralhar(teste)
+    };
+}
+
+function treinarNaiveBayes(dados) {
+    if (!dados.length) {
+        throw new Error("Não há dados para treinar.");
+    }
+
+    const contagemClasses = new Map();
+    const contagemPalavras = new Map();
+    const totalPalavrasClasse = new Map();
+    const vocabulario = new Set();
+
+    dados.forEach(item => {
+        const classe = item.classe;
+        const tokens = tokenizar(item.texto);
+
+        contagemClasses.set(
+            classe,
+            (contagemClasses.get(classe) || 0) + 1
+        );
+
+        if (!contagemPalavras.has(classe)) {
+            contagemPalavras.set(classe, new Map());
+            totalPalavrasClasse.set(classe, 0);
+        }
+
+        const mapa = contagemPalavras.get(classe);
+
+        tokens.forEach(token => {
+            vocabulario.add(token);
+            mapa.set(token, (mapa.get(token) || 0) + 1);
+            totalPalavrasClasse.set(
+                classe,
+                totalPalavrasClasse.get(classe) + 1
+            );
+        });
+    });
+
+    return {
+        classes: [...contagemClasses.keys()].sort(),
+        contagemClasses,
+        contagemPalavras,
+        totalPalavrasClasse,
+        vocabulario,
+        totalDocumentos: dados.length,
+        alpha: 1
+    };
+}
+
+function preverNaiveBayes(modelo, texto) {
+    const tokens = tokenizar(texto);
+    const palavrasConhecidas = tokens.filter(
+        token => modelo.vocabulario.has(token)
+    );
+
+    const tamanhoVocabulario = Math.max(1, modelo.vocabulario.size);
+    const pontuacoes = [];
+
+    for (const classe of modelo.classes) {
+        const nClasse = modelo.contagemClasses.get(classe);
+        const prior = Math.log(nClasse / modelo.totalDocumentos);
+        const mapa = modelo.contagemPalavras.get(classe);
+        const totalPalavras = modelo.totalPalavrasClasse.get(classe);
+
+        let score = prior;
+
+        for (const token of palavrasConhecidas) {
+            const frequencia = mapa.get(token) || 0;
+            const probabilidade =
+                (frequencia + modelo.alpha) /
+                (totalPalavras + modelo.alpha * tamanhoVocabulario);
+
+            score += Math.log(probabilidade);
+        }
+
+        pontuacoes.push({ classe, score });
+    }
+
+    pontuacoes.sort((a, b) => b.score - a.score);
+
+    const maiorScore = pontuacoes[0].score;
+    const expScores = pontuacoes.map(p => Math.exp(p.score - maiorScore));
+    const soma = expScores.reduce((a, b) => a + b, 0);
+
+    const probabilidades = pontuacoes.map((p, i) => ({
+        classe: p.classe,
+        probabilidade: expScores[i] / soma
+    }));
+
+    return {
+        classe: probabilidades[0].classe,
+        confianca: probabilidades[0].probabilidade,
+        probabilidades,
+        tokensReconhecidos: palavrasConhecidas.length
+    };
+}
+
+/* =========================================================
+   5. MÉTRICAS E MATRIZ DE CONFUSÃO REAIS
+   ========================================================= */
+
+function avaliarModelo(modelo, teste, classes) {
+    const matriz = {};
+    classes.forEach(real => {
+        matriz[real] = {};
+        classes.forEach(prev => matriz[real][prev] = 0);
+    });
+
+    let acertos = 0;
+
+    teste.forEach(item => {
+        const previsao = preverNaiveBayes(modelo, item.texto).classe;
+        if (!matriz[item.classe]) {
+            matriz[item.classe] = {};
+            classes.forEach(c => matriz[item.classe][c] = 0);
+        }
+        if (matriz[item.classe][previsao] === undefined) {
+            matriz[item.classe][previsao] = 0;
+        }
+
+        matriz[item.classe][previsao]++;
+
+        if (previsao === item.classe) acertos++;
+    });
+
+    const total = teste.length;
+    const acuracia = total ? acertos / total : 0;
+
+    let somaPrecisao = 0;
+    let somaRecall = 0;
+    let somaF1 = 0;
+    let classesAvaliadas = 0;
+
+    classes.forEach(classe => {
+        let vp = matriz[classe]?.[classe] || 0;
+        let fp = 0;
+        let fn = 0;
+
+        classes.forEach(real => {
+            if (real !== classe) {
+                fp += matriz[real]?.[classe] || 0;
+                fn += matriz[classe]?.[real] || 0;
+            }
+        });
+
+        const suporte = classes.reduce(
+            (s, c) => s + (matriz[classe]?.[c] || 0), 0
+        );
+
+        if (suporte === 0) return;
+
+        const precisao = vp + fp ? vp / (vp + fp) : 0;
+        const recall = vp + fn ? vp / (vp + fn) : 0;
+        const f1 = precisao + recall
+            ? 2 * precisao * recall / (precisao + recall)
+            : 0;
+
+        somaPrecisao += precisao;
+        somaRecall += recall;
+        somaF1 += f1;
+        classesAvaliadas++;
+    });
+
+    return {
+        matriz,
+        total,
+        acertos,
+        erros: total - acertos,
+        acuracia,
+        precisao: classesAvaliadas ? somaPrecisao / classesAvaliadas : 0,
+        recall: classesAvaliadas ? somaRecall / classesAvaliadas : 0,
+        f1: classesAvaliadas ? somaF1 / classesAvaliadas : 0
+    };
+}
+
+function percentual(valor) {
+    return (valor * 100).toFixed(2) + "%";
+}
+
+function renderizarMatrizConfusao(classes, matriz) {
+    const box = $("confusion-matrix-box");
+    let html = `
+        <p class="text-xs text-slate-500 mb-3">
+            Linhas = classe real; colunas = classe prevista.
+            Os valores correspondem ao conjunto de teste.
+        </p>
+        <div class="overflow-x-auto">
+        <table class="w-full text-center border-collapse text-[11px]">
+        <thead><tr class="bg-slate-200 text-slate-700">
+        <th class="p-2 border">Real \\ Prevista</th>`;
+
+    classes.forEach(c => {
+        html += `<th class="p-2 border">${escaparHTML(c)}</th>`;
+    });
+
+    html += "</tr></thead><tbody>";
+
+    classes.forEach(real => {
+        html += `<tr><th class="p-2 border bg-slate-100 text-left">${escaparHTML(real)}</th>`;
+
+        classes.forEach(prev => {
+            const valor = matriz[real]?.[prev] || 0;
+            const diagonal = real === prev;
+            const cor = diagonal
+                ? "bg-emerald-100 font-bold text-emerald-900"
+                : valor > 0
+                    ? "bg-rose-50 text-rose-800"
+                    : "text-slate-400";
+
+            html += `<td class="p-2 border ${cor}">${valor}</td>`;
+        });
+
+        html += "</tr>";
+    });
+
+    html += "</tbody></table></div>";
+    box.innerHTML = html;
+}
+
+/* =========================================================
+   6. SUBMISSÃO DA BASE
+   ========================================================= */
+
+function submeterDados() {
+    if (!datasetBruto.length) {
+        mostrarAlerta("Selecione um arquivo CSV válido primeiro.");
+        return;
+    }
+
+    classesUnicas = [...new Set(datasetBruto.map(d => d.classe))].sort();
+
+    if (classesUnicas.length < 2) {
+        mostrarAlerta("A base precisa conter pelo menos duas classes distintas.");
+        return;
+    }
+
+    const divisao = dividirTreinoTeste(datasetBruto);
+
+    $("stat-total-reg").textContent = datasetBruto.length;
+    $("stat-split-pct").textContent = "Aproximadamente 80% / 20%";
+    $("stat-classes-count").textContent = classesUnicas.length + " classes";
+    $("stat-split-abs").textContent =
+        `${divisao.treino.length} treino / ${divisao.teste.length} teste`;
+
+    const container = $("classes-chips-container");
+    container.innerHTML = "";
+
+    classesUnicas.forEach(classe => {
+        const chip = document.createElement("span");
+        chip.className =
+            "bg-indigo-50 text-indigo-700 border border-indigo-200 " +
+            "text-[11px] font-semibold px-3 py-1 rounded-xl";
+        chip.textContent = classe;
+        container.appendChild(chip);
+    });
+
+    esconderAlerta();
+    mostrarSecao("section-visualizacao");
+    atualizarIndicadores(2);
+}
+
+$("select-algoritmo").addEventListener("change", function(e) {
+    const descricoes = {
+        "naive-bayes":
+            "<strong>Naive Bayes:</strong> classificador probabilístico treinado com as mensagens e classes do CSV.",
+        "knn":
+            "<strong>KNN:</strong> esta opção ainda não está implementada neste script.",
+        "decision-tree":
+            "<strong>Árvore de Decisão:</strong> esta opção ainda não está implementada neste script.",
+        "logistic-regression":
+            "<strong>Regressão Logística:</strong> esta opção ainda não está implementada neste script."
+    };
+
+    $("alg-description").innerHTML = descricoes[e.target.value];
+});
+
+function iniciarTreinamento() {
+    if (!datasetBruto.length) {
+        mostrarAlerta("Importe e submeta a base antes de treinar.");
+        return;
+    }
+
+    const algoritmo = $("select-algoritmo").value;
+
+    if (algoritmo !== "naive-bayes") {
+        mostrarAlerta(
+            "Neste script, somente o Naive Bayes está implementado. " +
+            "Selecione Naive Bayes para executar um treinamento real."
+        );
+        return;
+    }
+
+    mostrarSecao("section-treinamento");
+    atualizarIndicadores(3);
+
+    $("training-progress-box").classList.remove("hidden");
+    $("training-results").classList.add("hidden");
+    $("training-status-text").textContent =
+        "Treinando e avaliando o Naive Bayes com os dados importados...";
+
+    setTimeout(() => {
+        try {
+            const inicio = performance.now();
+            const divisao = dividirTreinoTeste(datasetBruto);
+
+            modeloTreino = treinarNaiveBayes(divisao.treino);
+
+            avaliacaoAtual = avaliarModelo(
+                modeloTreino,
+                divisao.teste,
+                classesUnicas
+            );
+
+            // O modelo de uso prático é treinado com toda a base.
+            modeloFinal = treinarNaiveBayes(datasetBruto);
+
+            const tempo = performance.now() - inicio;
+            const a = avaliacaoAtual;
+
+            matrizAtual = a.matriz;
+
+            resultadosConsolidados["naive-bayes"] = {
+                nome: "Naive Bayes",
+                acuracia: percentual(a.acuracia),
+                precisao: percentual(a.precisao),
+                recall: percentual(a.recall),
+                f1: percentual(a.f1),
+                tempo: tempo.toFixed(1) + " ms"
+            };
+
+            $("metric-acc").textContent = percentual(a.acuracia);
+            $("metric-prec").textContent = percentual(a.precisao);
+            $("metric-rec").textContent = percentual(a.recall);
+            $("metric-f1").textContent = percentual(a.f1);
+            $("metric-hits-errors").textContent =
+                `${a.acertos} acertos / ${a.erros} erros`;
+            $("metric-time").textContent = tempo.toFixed(1) + " ms";
+            $("res-alg-title").textContent =
+                "Naive Bayes treinado e avaliado com a base importada.";
+
+            renderizarMatrizConfusao(classesUnicas, a.matriz);
+            renderizarTabelaConsolidada();
+
+            $("training-progress-box").classList.add("hidden");
+            $("training-results").classList.remove("hidden");
             esconderAlerta();
+
+        } catch (erro) {
+            $("training-progress-box").classList.add("hidden");
+            mostrarAlerta("Erro no treinamento: " + erro.message);
+        }
+    }, 20);
+}
+
+function renderizarTabelaConsolidada() {
+    const tbody = document.querySelector("#tabela-consolidada tbody");
+    tbody.innerHTML = "";
+
+    Object.values(resultadosConsolidados).forEach(res => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50";
+
+        [
+            res.nome, res.acuracia, res.precisao,
+            res.recall, res.f1, res.tempo, "Concluído"
+        ].forEach((valor, i) => {
+            const td = document.createElement("td");
+            td.className = "p-3.5";
+            td.textContent = valor;
+
+            if (i === 0) td.classList.add("font-bold", "text-slate-800");
+            if (i === 6) td.classList.add("text-emerald-700");
+
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+}
+
+/* =========================================================
+   7. CLASSIFICAÇÃO DE NOVAS MENSAGENS
+   ========================================================= */
+
+function classificarTexto() {
+    const texto = $("input-texto-teste").value.trim();
+
+    if (!texto) {
+        mostrarAlerta("Digite uma mensagem para classificar.");
+        return;
+    }
+
+    if (!modeloFinal) {
+        mostrarAlerta("Treine o modelo antes de classificar mensagens.");
+        return;
+    }
+
+    esconderAlerta();
+
+    const previsao = preverNaiveBayes(modeloFinal, texto);
+    const sinaisAtencao = detectarNecessidadeAtendimentoHumano(texto);
+
+    // A classe exibida vem do modelo treinado.
+    // O encaminhamento humano é um alerta separado, não uma classe.
+    $("res-badge").textContent = previsao.classe;
+    $("res-confianca").textContent = percentual(previsao.confianca);
+
+    const explicacao = sinaisAtencao.length
+        ? "ATENÇÃO: foram identificados os seguintes termos: " +
+          sinaisAtencao.join(", ") + ". Encaminhe a mensagem para avaliação " +
+          "humana conforme o protocolo de atendimento. A classe mostrada " +
+          "é a previsão do modelo e não substitui a triagem clínica."
+        : "A classe foi prevista pelo Naive Bayes treinado com a base importada. " +
+          "A confiança é uma probabilidade estimada pelo modelo, não uma " +
+          "medida de certeza clínica.";
+
+    $("res-explicacao").textContent = explicacao;
+
+    const container = $("resultado-container");
+    container.classList.remove("hidden");
+
+    if (sinaisAtencao.length) {
+        container.classList.remove("bg-slate-50", "border-slate-200");
+        container.classList.add("bg-amber-50", "border-amber-400");
+        $("res-badge").className =
+            "px-3 py-1.5 rounded-full text-xs font-bold uppercase " +
+            "tracking-wider bg-amber-100 text-amber-900";
+    } else {
+        container.classList.remove("bg-amber-50", "border-amber-400");
+        container.classList.add("bg-slate-50", "border-slate-200");
+        $("res-badge").className =
+            "px-3 py-1.5 rounded-full text-xs font-bold uppercase " +
+            "tracking-wider bg-indigo-100 text-indigo-800";
+    }
+
+    // Teste manual não tem rótulo real conhecido.
+    // Portanto, não se inventam acertos ou erros.
+    totalTestes++;
+    $("test-count").textContent = totalTestes;
+    $("test-hits").textContent = "—";
+    $("test-errors").textContent = "—";
+
+    adicionarAoHistorico(
+        texto,
+        previsao.classe,
+        percentual(previsao.confianca),
+        sinaisAtencao
+    );
+}
+
+function adicionarAoHistorico(texto, classe, confianca, sinaisAtencao = []) {
+    historicoTestes.unshift({
+        texto,
+        classe,
+        confianca,
+        horario: new Date().toLocaleTimeString("pt-BR"),
+        encaminhar: sinaisAtencao.length > 0,
+        sinais: sinaisAtencao
+    });
+
+    const tbody = document.querySelector("#historico-table tbody");
+    tbody.innerHTML = "";
+
+    historicoTestes.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50";
+
+        const valores = [
+            item.texto,
+            item.classe,
+            item.confianca,
+            item.horario
+        ];
+
+        valores.forEach((valor, i) => {
+            const td = document.createElement("td");
+            td.className = "p-3.5";
+            td.textContent = valor;
+
+            if (i === 1) {
+                td.classList.add("font-semibold", "text-indigo-700");
+            }
+
+            tr.appendChild(td);
+        });
+
+        if (item.encaminhar) {
+            tr.title = "Encaminhar para avaliação humana: " +
+                item.sinais.join(", ");
+            tr.classList.add("bg-amber-50");
         }
 
-        function mostrarAlerta(msg) {
-            const box = document.getElementById('alert-box');
-            document.getElementById('alert-message').innerText = msg;
-            box.classList.remove('hidden');
-        }
+        tbody.appendChild(tr);
+    });
+}
 
-        function esconderAlerta() {
-            document.getElementById('alert-box').classList.add('hidden');
-        }
-    </script>
-</body>
-</html>
+function limparHistorico() {
+    historicoTestes = [];
+    totalTestes = 0;
+    totalAcertos = 0;
+    totalErros = 0;
+
+    $("test-count").textContent = "0";
+    $("test-hits").textContent = "—";
+    $("test-errors").textContent = "—";
+
+    document.querySelector("#historico-table tbody").innerHTML =
+        '<tr id="empty-history">' +
+        '<td colspan="4" class="p-6 text-center text-slate-400">' +
+        'Nenhum teste realizado ainda.</td></tr>';
+}
+
+/* =========================================================
+   8. RELATÓRIO PDF
+   ========================================================= */
+
+function gerarRelatorioPDF() {
+    if (!avaliacaoAtual) {
+        mostrarAlerta("Treine o modelo antes de gerar o relatório.");
+        return;
+    }
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        mostrarAlerta(
+            "A biblioteca de PDF não foi carregada. Verifique a conexão."
+        );
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text("Relatório de Machine Learning", 14, 20);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Aluna: Marcia Regina Godoy", 14, 28);
+    doc.text("Data: " + new Date().toLocaleDateString("pt-BR"), 14, 34);
+    doc.text("Registros: " + datasetBruto.length, 14, 40);
+    doc.text("Classes: " + classesUnicas.length, 14, 46);
+    doc.text("Algoritmo: Naive Bayes Multinomial", 14, 52);
+    doc.text(
+        "Métricas calculadas no conjunto de teste; modelo final treinado com toda a base.",
+        14, 58
+    );
+
+    const a = avaliacaoAtual;
+
+    const linhas = [
+        ["Acurácia", percentual(a.acuracia)],
+        ["Precisão macro", percentual(a.precisao)],
+        ["Recall macro", percentual(a.recall)],
+        ["F1-score macro", percentual(a.f1)],
+        ["Acertos", String(a.acertos)],
+        ["Erros", String(a.erros)],
+        ["Tamanho do teste", String(a.total)]
+    ];
+
+    if (typeof doc.autoTable === "function") {
+        doc.autoTable({
+            startY: 65,
+            head: [["Métrica", "Resultado"]],
+            body: linhas,
+            theme: "grid"
+        });
+    } else {
+        let y = 68;
+        linhas.forEach(linha => {
+            doc.text(linha[0] + ": " + linha[1], 14, y);
+            y += 7;
+        });
+    }
+
+    doc.save("Relatorio_Machine_Learning_Marcia_Godoy.pdf");
+}
+
+/* =========================================================
+   9. REINICIAR E ALERTAS
+   ========================================================= */
+
+function reiniciarTudo() {
+    datasetBruto = [];
+    classesUnicas = [];
+    resultadosConsolidados = {};
+    historicoTestes = [];
+    modeloFinal = null;
+    modeloTreino = null;
+    matrizAtual = null;
+    avaliacaoAtual = null;
+
+    limparHistorico();
+
+    $("csvFile").value = "";
+    $("file-name").textContent = "Nenhum";
+    $("file-size").textContent = "0 KB";
+    $("file-rows").textContent = "0";
+    $("file-status").textContent = "Aguardando envio";
+    $("file-status").className =
+        "text-amber-600 block mt-0.5 font-medium";
+    $("btn-submeter").disabled = true;
+
+    $("preview-tbody").innerHTML = "";
+    $("preview-container").classList.add("hidden");
+    $("training-results").classList.add("hidden");
+    $("training-progress-box").classList.remove("hidden");
+    $("resultado-container").classList.add("hidden");
+    $("input-texto-teste").value = "";
+
+    $("classes-chips-container").innerHTML = "";
+    $("confusion-matrix-box").innerHTML = "";
+    $("stat-total-reg").textContent = "0";
+    $("stat-classes-count").textContent = "0 classes";
+    $("stat-split-abs").textContent = "0 / 0";
+    $("metric-acc").textContent = "0%";
+    $("metric-prec").textContent = "0%";
+    $("metric-rec").textContent = "0%";
+    $("metric-f1").textContent = "0%";
+    $("metric-hits-errors").textContent = "0 / 0";
+    $("metric-time").textContent = "0 ms";
+
+    $("tabela-consolidada").querySelector("tbody").innerHTML =
+        '<tr id="empty-tabela"><td colspan="7" ' +
+        'class="p-6 text-center text-slate-400">' +
+        'Nenhum algoritmo treinado ainda.</td></tr>';
+
+    mostrarSecao("section-dados");
+    atualizarIndicadores(1);
+    esconderAlerta();
+}
+
+function mostrarAlerta(msg) {
+    $("alert-message").textContent = msg;
+    $("alert-box").classList.remove("hidden");
+}
+
+function esconderAlerta() {
+    $("alert-box").classList.add("hidden");
+}
+</script>
