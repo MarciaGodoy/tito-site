@@ -27,7 +27,7 @@ button.p{background:var(--pri);color:#fff;border-color:var(--pri);font-weight:60
 button.p:hover{background:var(--pri-hover)}
 button:disabled{opacity:.45;cursor:not-allowed}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.drop{border:2px dashed var(--bd);border-radius:12px;padding:24px;text-align:center;margin:10px 0;background:rgba(255,255,255,0.5)}
+.drop{border:2px dashed var(--bd);border-radius:12px;padding:24px;text-align:center;margin:10px 0;background:rgba(255,255,255,0.5);cursor:pointer}
 .drop.over{border-color:var(--pri);background:var(--soft)}
 .msg{background:#fdf6e2;color:#8a5300;border-radius:10px;padding:10px 14px;margin-bottom:14px;border:1px solid #fae19b}
 .ok{background:var(--soft);color:var(--ok);border:1px solid #bbf7d0}
@@ -54,7 +54,7 @@ textarea{width:100%;min-height:90px;font:inherit;padding:10px;border-radius:10px
 <header>
  <div class="brand">
   <h1>Embra Care</h1>
-  <p>Ao seu lado, da gestação ao nascimento. Tecnologia e Cuidado Materno[span_3](start_span)[span_3](end_span)</p>
+  <p>Ao seu lado, da gestação ao nascimento. Tecnologia e Cuidado Materno</p>
  </div>
  <div class="row">
   <button id="bBack" class="hide">⬅️ Voltar etapa</button>
@@ -68,18 +68,19 @@ textarea{width:100%;min-height:90px;font:inherit;padding:10px;border-radius:10px
 <!-- ETAPA 1: DADOS -->
 <section class="c" id="s1">
  <h2>1. Carregamento da Base de Dados (Pré-Natal)</h2>
- <p>Envie um conjunto de dados estruturado (.csv ou .txt) ou utilize a base de exemplo da Embra Care contendo mensagens de texto livre de gestantes[span_4](start_span)[span_4](end_span)[span_5](start_span)[span_5](end_span).</p>
+ <p>Envie um conjunto de dados estruturado (.csv ou .txt) ou utilize a base de exemplo da Embra Care contendo mensagens de texto livre de gestantes.</p>
  <div class="drop" id="drop">
   <p>Arraste um arquivo CSV/TXT aqui ou clique para selecionar</p>
-  <input type="file" id="file" accept=".csv,.txt" class="hide">
+  <!-- Input de arquivo posicionado de forma limpa e acessível -->
+  <input type="file" id="file" accept=".csv,.txt" style="display:none">
   <div class="row" style="justify-content:center;margin-top:10px">
-   <button id="bSel">📁 Selecionar arquivo</button>
-   <button id="bSub" class="p">Submeter dados</button>
-   <button id="bEx">📋 Usar base sintética Embra Care</button>
+   <button type="button" id="bSel">📁 Selecionar arquivo</button>
+   <button type="button" id="bSub" class="p">Submeter dados</button>
+   <button type="button" id="bEx">📋 Usar base sintética Embra Care</button>
   </div>
-  <p class="m" id="finfo" style="margin-top:10px">Nenhum arquivo selecionado[span_6](start_span)[span_6](end_span).</p>
+  <p class="m" id="finfo" style="margin-top:10px">Nenhum arquivo selecionado.</p>
  </div>
- <p class="priv">🔒 O processamento de linguagem natural e classificação ocorre localmente no navegador[span_7](start_span)[span_7](end_span).</p>
+ <p class="priv">🔒 O processamento de linguagem natural e classificação ocorre localmente no navegador.</p>
 </section>
 
 <!-- ETAPA 2: CONFIGURAÇÃO E TREINAMENTO -->
@@ -101,7 +102,7 @@ textarea{width:100%;min-height:90px;font:inherit;padding:10px;border-radius:10px
    <option value="dt">Árvore de Decisão (Decision Tree)</option>
    <option value="lr">Regressão Logística</option>
   </select>
-  <button id="bTrain" class="p">🧠 Treinar Modelo</button>
+  <button type="button" id="bTrain" class="p">🧠 Treinar Modelo</button>
  </div>
  <p class="m" id="adesc" style="margin-top:8px"></p>
  <div id="prog" class="hide" style="margin-top:12px">
@@ -113,7 +114,7 @@ textarea{width:100%;min-height:90px;font:inherit;padding:10px;border-radius:10px
 <!-- ETAPA 3: AVALIAÇÃO E MÉTRICAS -->
 <section class="c hide" id="s3">
  <h2>3. Avaliação e Métricas de Desempenho</h2>
- <p id="done" class="ok" style="padding:8px 12px;border-radius:10px">✅ Modelo treinado e avaliado com sucesso no conjunto de teste (20%)[span_8](start_span)[span_8](end_span)!</p>
+ <p id="done" class="ok" style="padding:8px 12px;border-radius:10px">✅ Modelo treinado e avaliado com sucesso no conjunto de teste (20%)!</p>
  <div class="grid" id="stats" style="margin:14px 0"></div>
  
  <h3>Matriz de Confusão</h3>
@@ -126,16 +127,16 @@ textarea{width:100%;min-height:90px;font:inherit;padding:10px;border-radius:10px
  </div>
 
  <div class="row" style="margin-top:20px;justify-content:flex-end">
-  <button id="bGoTest" class="p">🔎 Ir para Teste de Nova Mensagem</button>
+  <button type="button" id="bGoTest" class="p">🔎 Ir para Teste de Nova Mensagem</button>
  </div>
 </section>
 
 <!-- ETAPA 4: TESTE DE NOVOS DADOS E RELATÓRIO CONSOLIDADO -->
 <section class="c hide" id="s4">
  <h2>4. Testar Nova Mensagem da Gestante</h2>
- <p>Insira uma nova mensagem de texto livre para classificar em tempo real utilizando o modelo treinado[span_9](start_span)[span_9](end_span).</p>
+ <p>Insira uma nova mensagem de texto livre para classificar em tempo real utilizando o modelo treinado.</p>
  <textarea id="txt" placeholder="Ex: Estou com sangramento e cólicas fortes desde cedo..."></textarea>
- <button id="bCls" class="p" style="margin-top:8px">🔮 Classificar Mensagem</button>
+ <button type="button" id="bCls" class="p" style="margin-top:8px">🔮 Classificar Mensagem</button>
  <div id="out" class="hide" style="margin-top:12px;background:var(--soft);padding:14px;border-radius:10px;border:1px solid #b2d8db">
   <div class="res" id="pred"></div>
   <p><b>Confiança:</b> <span id="conf"></span></p>
@@ -143,7 +144,7 @@ textarea{width:100%;min-height:90px;font:inherit;padding:10px;border-radius:10px
  </div>
 
  <h2 style="margin-top:30px">📊 Relatório Consolidado (Atividade IFRS)</h2>
- <p class="m">Tabela comparativa com os testes executados para cada algoritmo[span_10](start_span)[span_10](end_span):</p>
+ <p class="m">Tabela comparativa com os testes executados para cada algoritmo:</p>
  <div class="sc">
   <table>
    <thead>
@@ -194,7 +195,7 @@ function tok(t){return String(t).toLowerCase().normalize('NFD').replace(/[\u0300
 const ALGOS={
  nb:{
   nome:'Naive Bayes',
-  desc:'Classificador probabilístico baseado no Teorema de Bayes com suposição de independência entre termos[span_11](start_span)[span_11](end_span).',
+  desc:'Classificador probabilístico baseado no Teorema de Bayes com suposição de independência entre termos.',
   treinar(dados,classes){
    const m={classes,docs:{},cont:{},tot:{},vocab:{},n:dados.length};
    classes.forEach(c=>{m.docs[c]=0;m.cont[c]={};m.tot[c]=0});
@@ -260,7 +261,7 @@ const ALGOS={
  },
  lr:{
   nome:'Regressão Logística',
-  desc:'Modelo linear generalizado ponderado por coeficientes lexicais via função Softmax[span_12](start_span)[span_12](end_span).',
+  desc:'Modelo linear generalizado ponderado por coeficientes lexicais via função Softmax.',
   treinar(dados,classes){
    const weights={};
    classes.forEach(c=>weights[c]={bias:0,w:{}});
@@ -305,7 +306,7 @@ function aviso(t,ok){
  m.classList.toggle('hide',!t);
 }
 
-/* ===== Manipulação de Arquivos ===== */
+/* ===== Manipulação Corrigida de Arquivos ===== */
 function parseCSV(txt){
  txt=txt.replace(/^\uFEFF/,'');
  const l1=txt.split(/\r?\n/)[0]||'';
@@ -326,14 +327,28 @@ function carregar(t,nome,tam){
  $('#finfo').innerHTML=`<b>${esc(nome)}</b> · ${(tam/1024).toFixed(1)} KB · ${n} registros`;
 }
 
-$('#bSel').onclick=()=>$('#file').click();
-$('#file').onchange=e=>lerArquivo(e.target.files[0]);
-function lerArquivo(f){if(!f)return; f.text().then(t=>carregar(t,f.name,f.size))}
+// Evento corrigido para disparar o seletor de arquivos corretamente
+$('#bSel').onclick = () => $('#file').click();
+$('#drop').onclick = (e) => {
+  if(e.target.tagName !== 'BUTTON') $('#file').click();
+};
+
+$('#file').onchange = e => {
+  if(e.target.files && e.target.files[0]) {
+    lerArquivo(e.target.files[0]);
+  }
+};
+
+function lerArquivo(f){
+  if(!f)return;
+  f.text().then(t=>carregar(t,f.name,f.size));
+}
 
 const dz=$('#drop');
 dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};
 dz.ondragleave=()=>dz.classList.remove('over');
-dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');lerArquivo(e.dataTransfer.files[0])};
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])lerArquivo(e.dataTransfer.files[0])};
+
 $('#bEx').onclick=()=>carregar(EXEMPLO,'embra-care-prenatal.csv',new Blob([EXEMPLO]).size);
 
 /* Submeter Dados */
