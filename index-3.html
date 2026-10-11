@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IA em Saúde Materna — Classificador de Mensagens</title>
+<style>
+:root{--navy:#12376a;--blue:#1769e0;--pale:#f3f8ff;--line:#d8e7fa;--green:#13865b;--orange:#b85b00;--red:#c62828;--text:#19365f}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:var(--text);background:#f5f9fe}
+header{background:white;border-bottom:1px solid var(--line);padding:16px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:3}
+.logo{font-size:28px;color:var(--navy)}h1{font-size:20px;margin:0;color:var(--navy)}header p{margin:2px 0 0;color:#587293}
+main{max-width:1500px;margin:auto;padding:16px;display:grid;gap:14px}
+.panel{background:white;border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+h2{font-size:16px;margin:0 0 10px;color:var(--navy)}h3{font-size:14px;margin:10px 0 6px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grid2{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}.algos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.algo{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fbfdff;display:flex;gap:8px;align-items:flex-start}
+.algo input{margin-top:4px}.algo strong{display:block}.algo small{display:block;color:#5b7391;margin-top:4px}
+button,.button{background:var(--blue);color:white;border:0;border-radius:7px;padding:10px 14px;font-weight:650;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}button.secondary{background:#eaf2ff;color:var(--navy);border:1px solid var(--line)}
+input[type=file],select,textarea{border:1px solid #cbdcf0;border-radius:7px;padding:10px;background:white;color:var(--text)}textarea{width:100%;min-height:100px;resize:vertical}
+.status{font-size:12px;color:var(--green);font-weight:600}.muted{color:#66809f;font-size:12px}.warning{padding:10px;border-radius:7px;background:#fff4e8;color:#8a3900;border:1px solid #ffd6ae}
+.error{padding:10px;border-radius:7px;background:#fff0f0;color:#a51e1e;border:1px solid #f4c7c7}
+.classes{display:flex;flex-wrap:wrap;gap:7px}.tag{font-size:12px;background:#eef5ff;padding:5px 8px;border-radius:6px}
+.results{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.model-card{border:1px solid var(--line);border-radius:9px;overflow:hidden;min-width:0}
+.model-head{padding:10px;background:#f0f6ff;font-weight:700}.model-body{padding:10px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.metric{border:1px solid #e0eaf6;border-radius:6px;padding:6px 2px;text-align:center}.metric span{display:block;font-size:10px;color:#5c7390}.metric b{font-size:15px}
+table{border-collapse:collapse;width:100%;font-size:11px;margin-top:6px}th,td{border:1px solid #dbe7f5;padding:4px;text-align:center;overflow-wrap:anywhere}th{background:#f3f7fc}td:first-child,th:first-child{text-align:left}
+.table-wrap{overflow:auto;max-width:100%}.bottom{display:grid;grid-template-columns:1.2fr 1fr .9fr;gap:14px}.prediction{background:#f5f9ff;border:1px solid var(--line);padding:10px;border-radius:7px;min-height:90px}
+.urgent{color:var(--red);font-weight:700}.safe{color:var(--green);font-weight:650}.hide{display:none!important}
+@media(max-width:1100px){.results{grid-template-columns:repeat(2,minmax(0,1fr))}.algos{grid-template-columns:repeat(2,minmax(0,1fr))}.bottom,.grid2{grid-template-columns:1fr}}
+@media(max-width:620px){main{padding:8px}.results,.algos{grid-template-columns:1fr}header{padding:12px}h1{font-size:17px}.panel{padding:10px}}
+</style>
+</head>
+<body>
+<header><div class="logo">♡</div><div><h1>IA em Saúde Materna</h1><p>Classificação de mensagens de gestantes — laboratório acadêmico</p></div></header>
+<main>
+<section class="grid2">
+ <div class="panel">
+  <h2>1. Carregar conjunto de dados</h2>
+  <p>Importe um CSV com duas colunas: <b>texto</b> e <b>classe</b>. Aceita vírgula, ponto e vírgula ou tabulação e campos entre aspas.</p>
+  <div class="row"><input id="csvFile" type="file" accept=".csv,text/csv"><button id="loadBtn">Carregar CSV</button></div>
+  <div id="dataStatus" class="muted" style="margin-top:8px">Nenhum arquivo carregado.</div>
+  <div id="previewWrap" class="table-wrap hide"><h3>Prévia dos dados</h3><table id="preview"></table></div>
+ </div>
+ <div class="panel"><h2>Classes encontradas no CSV</h2><div id="classList" class="classes muted">Aguardando arquivo.</div><p id="classStats" class="muted"></p></div>
+</section>
+<section class="panel">
+ <h2>2. Selecione os algoritmos</h2>
+ <div class="algos">
+  <label class="algo"><input type="checkbox" class="algoCheck" value="nb" checked><span><strong>Naive Bayes</strong><small>Modelo probabilístico baseado na frequência dos termos.</small></span></label>
+  <label class="algo"><input type="checkbox" class="algoCheck" value="knn" checked><span><strong>K-Nearest Neighbors (KNN)</strong><small>Classifica pela similaridade entre mensagens.</small></span></label>
+  <label class="algo"><input type="checkbox" class="algoCheck" value="tree" checked><span><strong>Árvore de Decisão</strong><small>Aprende regras de decisão a partir dos textos.</small></span></label>
+  <label class="algo"><input type="checkbox" class="algoCheck" value="lr" checked><span><strong>Regressão Logística</strong><small>Estima probabilidades por classe com regressão softmax.</small></span></label>
+ </div>
+ <div class="row" style="margin-top:12px"><label for="split">Divisão treino/teste:</label><select id="split"><option value=".7">70% / 30%</option><option value=".8" selected>80% / 20%</option><option value=".75">75% / 25%</option></select><label for="seed">Semente:</label><input id="seed" type="number" value="42" style="width:90px"><button id="trainBtn" disabled>Treinar e testar</button><span id="trainStatus" class="muted">Carregue os dados para começar.</span></div>
+ <div id="errorBox" class="error hide" style="margin-top:10px"></div>
+</section>
+<section class="panel"><h2>3. Resultados dos algoritmos</h2><p class="muted">As métricas são calculadas em dados de teste separados do treino. Com conjuntos pequenos, os resultados podem variar conforme a divisão.</p><div id="results" class="results"><div class="muted">Os resultados aparecerão após o treinamento.</div></div></section>
+<section class="panel"><h2>4. Comparação geral</h2><div id="comparison" class="table-wrap muted">Treine os modelos para comparar os resultados.</div></section>
+<section class="bottom">
+ <div class="panel"><h2>5. Classificar nova mensagem</h2><label for="newMessage">Mensagem da gestante</label><textarea id="newMessage" placeholder="Digite ou cole uma mensagem..."></textarea><div class="row" style="margin-top:8px"><label for="predictAlgo">Algoritmo:</label><select id="predictAlgo"></select><button id="predictBtn" disabled>Classificar mensagem</button></div><div id="prediction" class="prediction" style="margin-top:10px">Treine pelo menos um algoritmo para classificar mensagens.</div></div>
+ <div class="panel"><h2>6. Regras de encaminhamento humano</h2><div class="warning"><b>Atenção:</b> mensagens contendo termos como <b>sangramento, hemorragia, dor, febre, pressão alta</b> ou <b>bebê não se mexe</b> são sinalizadas para avaliação humana imediata, independentemente da classe prevista pelo modelo.</div><p class="muted">Esta regra demonstrativa não é um protocolo clínico validado e não substitui avaliação profissional ou os fluxos oficiais de urgência.</p></div>
+ <div class="panel"><h2>7. Histórico de previsões</h2><div class="row"><button id="clearHistory" class="secondary">Limpar histórico</button><button id="exportHistory" class="secondary">Exportar CSV</button></div><div id="historyWrap" class="table-wrap"><p class="muted">Nenhuma previsão ainda.</p></div></div>
+</section>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let rows=[], texts=[], labels=[], classes=[], models={}, history=[];
+const stopWords = new Set("a à agora ainda algo algumas alguns ali antes ao aos aquela aquelas aquele aqueles aquilo as assim até com como da das de dela delas dele deles depois do dos e ela elas ele eles em enquanto entre era essa essas esse esses esta estas este estes eu foi foram há isso isto já lhe lhes mais mas me mesma mesmo meu meus minha minhas muita muitas muito muitos na nada nas nem nesse nesta neste no nos nós nossa nossas nosso nossos num numa o os ou outra outras outro outros para pela pelas pelo pelos por porque qual quando quanto que quem se sem ser seu seus sua suas também te tem tendo ter teu teus tua tuas um uma umas uns você vocês".split(/\s+/));
+function normalize(s){return String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[’']/g," ").replace(/[^a-z0-9]+/g," ").trim();}
+function tokenize(s){return normalize(s).split(/\s+/).filter(w=>w && w.length>1 && !stopWords.has(w));}
+function parseCSV(text){
+ text=text.replace(/^\uFEFF/,""); const first=(text.split(/\r?\n/).find(x=>x.trim())||"");
+ const counts=[",",";","\t"].map(d=>({d,n:(first.match(new RegExp(d==="\t"?"\\t":d===","?",":";","g"))||[]).length}));
+ counts.sort((a,b)=>b.n-a.n); const delim=counts[0].d;
+ let out=[], row=[], field="", quoted=false;
+ for(let i=0;i<text.length;i++){let c=text[i];
+  if(quoted){if(c==='"'&&text[i+1]==='"'){field+='"';i++;}else if(c==='"')quoted=false;else field+=c;}
+  else if(c==='"'&&field==="")quoted=true;
+  else if(c===delim){row.push(field);field="";}
+  else if(c==="\n"){row.push(field.replace(/\r$/,""));if(row.some(x=>x.trim()))out.push(row);row=[];field="";}
+  else field+=c;
+ }
+ if(field.length||row.length){row.push(field.replace(/\r$/,""));if(row.some(x=>x.trim()))out.push(row);}
+ if(out.length<2)throw Error("O CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
+ const head=out[0].map(x=>normalize(x).replace(/\s/g,""));
+ let ti=head.indexOf("texto"), ci=head.indexOf("classe");
+ if(ti<0||ci<0){if(out[0].length===2){ti=0;ci=1;}else throw Error("Não encontrei as colunas 'texto' e 'classe' no cabeçalho.");}
+ const data=out.slice(1).map(r=>({texto:(r[ti]||"").trim(),classe:(r[ci]||"").trim()})).filter(r=>r.texto&&r.classe);
+ if(!data.length)throw Error("Nenhuma linha válida. Confira as colunas texto e classe.");
+ return data;
+}
+function rng(seed){let x=(Number(seed)||42)>>>0;return()=>{x=(1664525*x+1013904223)>>>0;return x/4294967296;};}
+function shuffle(a,random){a=a.slice();for(let i=a.length-1;i>0;i--){let j=Math.floor(random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function stratifiedSplit(data,ratio,seed){
+ const random=rng(seed), by={};data.forEach(r=>(by[r.classe]??=[]).push(r));let train=[],test=[];
+ Object.values(by).forEach(group=>{let g=shuffle(group,random);let n=Math.floor(g.length*ratio);if(g.length>1)n=Math.max(1,Math.min(g.length-1,n));else n=1;train.push(...g.slice(0,n));test.push(...g.slice(n));});
+ if(!test.length&&data.length>1){test.push(train.pop());}
+ return {train:shuffle(train,random),test:shuffle(test,random)};
+}
+function makeVocab(data){let df=new Map();data.forEach(r=>new Set(tokenize(r.texto)).forEach(t=>df.set(t,(df.get(t)||0)+1)));return [...df.keys()].sort();}
+function vector(text,vocab,idf){let tf={};tokenize(text).forEach(t=>tf[t]=(tf[t]||0)+1);let v=new Float64Array(vocab.length);let norm=0;for(let i=0;i<vocab.length;i++){let val=(tf[vocab[i]]||0)*(idf?idf[i]:1);v[i]=val;norm+=val*val;}norm=Math.sqrt(norm)||1;for(let i=0;i<v.length;i++)v[i]/=norm;return v;}
+function dot(a,b){let s=0;for(let i=0;i<a.length;i++)s+=a[i]*b[i];return s;}
+function fitNB(train,cs,vocab){
+ const counts={},totals={},priors={};cs.forEach(c=>{counts[c]={};totals[c]=0;priors[c]=0;});
+ const idx=new Map(vocab.map((t,i)=>[t,i]));train.forEach(r=>{priors[r.classe]++;tokenize(r.texto).forEach(t=>{if(idx.has(t)){counts[r.classe][t]=(counts[r.classe][t]||0)+1;totals[r.classe]++;}});});
+ const denom={};cs.forEach(c=>{denom[c]=totals[c]+vocab.length;});
+ return {type:"nb",predict(text){let ts=tokenize(text),scores={};cs.forEach(c=>{let s=Math.log((priors[c]+1)/(train.length+cs.length));ts.forEach(t=>{s+=Math.log(((counts[c][t]||0)+1)/(denom[c]||1));});scores[c]=s;});return scoreResult(scores);}};
+}
+function fitKNN(train,cs,vocab){
+ const idf=vocab.map(t=>Math.log(1+train.length/(1+train.filter(r=>tokenize(r.texto).includes(t)).length)));
+ const X=train.map(r=>vector(r.texto,vocab,idf));
+ return {type:"knn",predict(text){let q=vector(text,vocab,idf);let sims=X.map((v,i)=>({s:dot(q,v),c:train[i].classe})).sort((a,b)=>b.s-a.s).slice(0,Math.min(5,train.length));let scores={};cs.forEach(c=>scores[c]=0);sims.forEach(o=>scores[o.c]+=Math.max(0,o.s)+0.001);return scoreResult(scores);}};
+}
+function gini(labelsNow){if(!labelsNow.length)return 0;let m={};labelsNow.forEach(c=>m[c]=(m[c]||0)+1);return 1-Object.values(m).reduce((s,n)=>s+(n/labelsNow.length)**2,0);}
+function fitTree(train,cs,vocab){
+ const feats=vocab.slice(0,Math.min(vocab.length,600));
+ function build(sub,available,depth){
+  let counts={};sub.forEach(r=>counts[r.classe]=(counts[r.classe]||0)+1);let majority=Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0]||cs[0];
+  if(depth>=7||sub.length<4||Object.keys(counts).length===1||!available.length)return {leaf:majority};
+  let best=null,bestGain=0,base=gini(sub.map(r=>r.classe));
+  const candidates=available.length>100?shuffle(available,rng(depth+sub.length)).slice(0,100):available;
+  candidates.forEach(t=>{let yes=sub.filter(r=>tokenize(r.texto).includes(t)),no=sub.filter(r=>!tokenize(r.texto).includes(t));if(!yes.length||!no.length)return;let gain=base-(yes.length/sub.length)*gini(yes.map(r=>r.classe))-(no.length/sub.length)*gini(no.map(r=>r.classe));if(gain>bestGain){bestGain=gain;best={t,yes,no};}});
+  if(!best||bestGain<0.005)return {leaf:majority};
+  const rest=available.filter(t=>t!==best.t);
+  return {t:best.t,yes:build(best.yes,rest,depth+1),no:build(best.no,rest,depth+1),fallback:majority};
+ }
+ const root=build(train,feats,0);
+ return {type:"tree",predict(text){let present=new Set(tokenize(text)),n=root;while(!n.leaf){n=present.has(n.t)?n.yes:n.no;if(!n)return {label:root.fallback,confidence:0.5};}return {label:n.leaf,confidence:0.75};}};
+}
+function fitLR(train,cs,vocab,seed){
+ const terms=vocab.slice(0,Math.min(vocab.length,800));const idf=terms.map(t=>Math.log(1+train.length/(1+train.filter(r=>tokenize(r.texto).includes(t)).length)));
+ const X=train.map(r=>vector(r.texto,terms,idf)), y=train.map(r=>cs.indexOf(r.classe)), K=cs.length,D=terms.length;
+ const rand=rng(seed);let W=Array.from({length:K},()=>Float64Array.from({length:D+1},()=> (rand()-.5)*.01));
+ const epochs=160,lr=.12,reg=.002;
+ for(let ep=0;ep<epochs;ep++){let order=shuffle(X.map((_,i)=>i),rand);let rate=lr/(1+ep*.015);
+  for(const i of order){let x=X[i],scores=W.map(w=>{let s=w[D];for(let j=0;j<D;j++)s+=w[j]*x[j];return s;});let max=Math.max(...scores),ex=scores.map(s=>Math.exp(s-max)),sum=ex.reduce((a,b)=>a+b,0);
+   for(let k=0;k<K;k++){let err=ex[k]/sum-(k===y[i]?1:0);for(let j=0;j<D;j++)W[k][j]-=rate*(err*x[j]+reg*W[k][j]);W[k][D]-=rate*err;}
+  }
+ }
+ return {type:"lr",predict(text){let x=vector(text,terms,idf),scores=W.map(w=>{let s=w[D];for(let j=0;j<D;j++)s+=w[j]*x[j];return s;}),max=Math.max(...scores),ex=scores.map(s=>Math.exp(s-max)),sum=ex.reduce((a,b)=>a+b,0),probs=ex.map(v=>v/sum),i=probs.indexOf(Math.max(...probs));return {label:cs[i],confidence:probs[i]};}};
+}
+function scoreResult(scores){let best=Object.keys(scores).sort((a,b)=>scores[b]-scores[a])[0];let vals=Object.values(scores),max=Math.max(...vals),sum=vals.reduce((s,v)=>s+Math.exp(v-max),0);return {label:best,confidence:sum?1/sum:0};}
+function fitModel(key,train,cs,seed){let vocab=makeVocab(train);if(!vocab.length)vocab=["__vazio__"];if(key==="nb")return fitNB(train,cs,vocab);if(key==="knn")return fitKNN(train,cs,vocab);if(key==="tree")return fitTree(train,cs,vocab);return fitLR(train,cs,vocab,seed);}
+function metrics(model,test,cs){
+ let matrix={};cs.forEach(a=>{matrix[a]={};cs.forEach(b=>matrix[a][b]=0);});
+ let correct=0;const preds=test.map(r=>{let p=model.predict(r.texto);if(!matrix[r.classe])matrix[r.classe]={};if(matrix[r.classe][p.label]===undefined)matrix[r.classe][p.label]=0;matrix[r.classe][p.label]++;if(r.classe===p.label)correct++;return {...r,pred:p.label};});
+ const details=cs.map(c=>{let tp=matrix[c]?.[c]||0,fp=cs.reduce((s,a)=>s+(a!==c?(matrix[a]?.[c]||0):0),0),fn=cs.reduce((s,b)=>s+(b!==c?(matrix[c]?.[b]||0):0),0);let p=tp/(tp+fp)||0,r=tp/(tp+fn)||0;return {classe:c,precisao:p,recall:r,f1:p+r?2*p*r/(p+r):0,suporte:cs.reduce((s,b)=>s+(matrix[c]?.[b]||0),0)};});
+ return {accuracy:test.length?correct/test.length:0,precision:details.reduce((s,d)=>s+d.precisao,0)/(cs.length||1),recall:details.reduce((s,d)=>s+d.recall,0)/(cs.length||1),f1:details.reduce((s,d)=>s+d.f1,0)/(cs.length||1),matrix,details,preds,testCount:test.length};
+}
+const modelNames={nb:"Naive Bayes",knn:"K-Nearest Neighbors (KNN)",tree:"Árvore de Decisão",lr:"Regressão Logística"};
+function fmt(n){return Number(n||0).toFixed(3);}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function renderData(){
+ $("dataStatus").innerHTML=`<span class="status">✓ ${rows.length.toLocaleString("pt-BR")} mensagens válidas carregadas.</span>`;
+ $("classList").innerHTML=classes.map(c=>`<span class="tag">${esc(c)}: <b>${labels.filter(x=>x===c).length}</b></span>`).join("");
+ $("classStats").textContent=`${classes.length} classes distintas. Confira se os rótulos estão consistentes antes de treinar.`;
+ $("previewWrap").classList.remove("hide");
+ $("preview").innerHTML="<thead><tr><th>texto</th><th>classe</th></tr></thead><tbody>"+rows.slice(0,5).map(r=>`<tr><td>${esc(r.texto)}</td><td>${esc(r.classe)}</td></tr>`).join("")+"</tbody>";
+ $("trainBtn").disabled=rows.length<2;$("predictBtn").disabled=true;
+}
+$("loadBtn").addEventListener("click",async()=>{
+ const f=$("csvFile").files[0];if(!f){$("errorBox").textContent="Selecione um arquivo CSV primeiro.";$("errorBox").classList.remove("hide");return;}
+ try{const data=parseCSV(await f.text());rows=data;texts=data.map(r=>r.texto);labels=data.map(r=>r.classe);classes=[...new Set(labels)].sort();models={};history=[];renderData();$("trainStatus").textContent="Dados carregados. Selecione os modelos e treine."; $("errorBox").classList.add("hide");$("results").innerHTML='<div class="muted">Treine os modelos para ver as métricas.</div>';$("comparison").textContent="Treine os modelos para comparar os resultados.";renderHistory();}
+ catch(e){$("errorBox").textContent=e.message||String(e);$("errorBox").classList.remove("hide");}
+});
+function checkedAlgos(){return [...document.querySelectorAll(".algoCheck:checked")].map(x=>x.value);}
+$("trainBtn").addEventListener("click",()=>{
+ if(rows.length<2)return;let chosen=checkedAlgos();if(!chosen.length){$("errorBox").textContent="Selecione pelo menos um algoritmo.";$("errorBox").classList.remove("hide");return;}
+ try{
+  const seed=Number($("seed").value)||42,ratio=Number($("split").value),sp=stratifiedSplit(rows,ratio,seed);
+  if(!sp.test.length)throw Error("Não foi possível formar um conjunto de teste. Importe mais mensagens.");
+  models={};let summaries=[];
+  chosen.forEach(key=>{const m=fitModel(key,sp.train,classes,seed);const met=metrics(m,sp.test,classes);models[key]={model:m,metrics:met};summaries.push({key,...met});});
+  renderResults(summaries);renderComparison(summaries);$("predictAlgo").innerHTML=chosen.map(k=>`<option value="${k}">${modelNames[k]}</option>`).join("");$("predictBtn").disabled=false;
+  $("trainStatus").innerHTML=`<span class="status">✓ Treino/teste concluído. Treino: ${sp.train.length}; teste: ${sp.test.length} mensagens.</span>`;$("errorBox").classList.add("hide");
+ }catch(e){$("errorBox").textContent="Erro no treinamento: "+(e.message||e);$("errorBox").classList.remove("hide");}
+});
+function renderResults(items){
+ $("results").innerHTML=items.map(o=>`<article class="model-card"><div class="model-head">${modelNames[o.key]}</div><div class="model-body"><div class="metrics"><div class="metric"><span>Acurácia</span><b>${fmt(o.accuracy)}</b></div><div class="metric"><span>Precisão macro</span><b>${fmt(o.precision)}</b></div><div class="metric"><span>Recall macro</span><b>${fmt(o.recall)}</b></div><div class="metric"><span>F1 macro</span><b>${fmt(o.f1)}</b></div></div><h3>Matriz de confusão</h3><div class="table-wrap">${matrixHTML(o.matrix)}</div><h3>Métricas por classe</h3><div class="table-wrap"><table><thead><tr><th>Classe</th><th>Precisão</th><th>Recall</th><th>F1</th><th>N</th></tr></thead><tbody>${o.details.map(d=>`<tr><td>${esc(d.classe)}</td><td>${fmt(d.precisao)}</td><td>${fmt(d.recall)}</td><td>${fmt(d.f1)}</td><td>${d.suporte}</td></tr>`).join("")}</tbody></table></div></div></article>`).join("");
+}
+function matrixHTML(matrix){return `<table><thead><tr><th>Real ↓ / Previsto →</th>${classes.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${classes.map(a=>`<tr><th>${esc(a)}</th>${classes.map(b=>`<td>${matrix[a]?.[b]||0}</td>`).join("")}</tr>`).join("")}</tbody></table>`;}
+function renderComparison(items){const sorted=items.slice().sort((a,b)=>b.f1-a.f1);$("comparison").innerHTML=`<table><thead><tr><th>Algoritmo</th><th>Acurácia</th><th>Precisão macro</th><th>Recall macro</th><th>F1 macro</th><th>Mensagens teste</th></tr></thead><tbody>${sorted.map(o=>`<tr><td>${modelNames[o.key]}</td><td>${fmt(o.accuracy)}</td><td>${fmt(o.precision)}</td><td>${fmt(o.recall)}</td><td>${fmt(o.f1)}</td><td>${o.testCount}</td></tr>`).join("")}</tbody></table><p class="muted">Métricas macro: média simples entre classes. Resultados dependem do tamanho e da qualidade do CSV.</p>`;}
+function urgency(text){const t=normalize(text);const rules=[["sangramento",/\bsangramento(s)?\b/],["hemorragia",/\bhemorragia(s)?\b/],["dor",/\bdor(es)?\b/],["febre",/\bfebre(s)?\b/],["pressão alta",/\bpressao alta\b|\bpressao arterial alta\b|\bhipertens(a|ao)\b/],["bebê não se mexe",/\b(bebe|nenem|nenemzinho)\b.*\b(nao mexe|nao se mexe|parou de mexer|nao movimenta)\b|\bnao sinto o bebe\b/],["falta de ar",/\bfalta de ar\b|\bdificuldade para respirar\b/]];return rules.filter(r=>r[1].test(t)).map(r=>r[0]);}
+$("predictBtn").addEventListener("click",()=>{
+ const text=$("newMessage").value.trim(),key=$("predictAlgo").value;if(!text){$("prediction").textContent="Digite uma mensagem para classificar.";return;}if(!models[key]){$("prediction").textContent="Treine o algoritmo selecionado antes de classificar.";return;}
+ const p=models[key].model.predict(text),flags=urgency(text),item={data:new Date().toLocaleString("pt-BR"),texto:text,classe:p.label,confianca:p.confidence,algoritmo:modelNames[key],alerta:flags.length>0?flags.join(", "):""};
+ history.unshift(item);renderHistory();$("prediction").innerHTML=`<b>Classe prevista:</b> ${esc(p.label)}<br><b>Algoritmo:</b> ${modelNames[key]}<br><b>Confiança estimada:</b> ${fmt(p.confidence)}${flags.length?`<p class="urgent">⚠ Encaminhar para avaliação humana: ${esc(flags.join(", "))}.</p>`:`<p class="muted">Nenhum termo de alerta configurado foi detectado. Isso não confirma ausência de risco clínico.</p>`}`;
+});
+function renderHistory(){if(!history.length){$("historyWrap").innerHTML='<p class="muted">Nenhuma previsão ainda.</p>';return;}$("historyWrap").innerHTML=`<table><thead><tr><th>Data/hora</th><th>Mensagem</th><th>Classe prevista</th><th>Algoritmo</th><th>Ação</th></tr></thead><tbody>${history.map(h=>`<tr><td>${esc(h.data)}</td><td>${esc(h.texto)}</td><td>${esc(h.classe)}</td><td>${esc(h.algoritmo)}</td><td>${h.alerta?'<span class="urgent">Avaliação humana</span>':'—'}</td></tr>`).join("")}</tbody></table>`;}
+$("clearHistory").addEventListener("click",()=>{history=[];renderHistory();});
+$("exportHistory").addEventListener("click",()=>{if(!history.length){alert("Não há previsões para exportar.");return;}const csv=[["data_hora","texto","classe_prevista","confianca","algoritmo","alerta"],...history.map(h=>[h.data,h.texto,h.classe,h.confianca,h.algoritmo,h.alerta])].map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}));a.download="historico_previsoes.csv";a.click();URL.revokeObjectURL(a.href);});
+</script>
+</body>
+</html>
