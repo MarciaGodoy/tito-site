@@ -1,1288 +1,495 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Laboratório de Machine Learning</title>
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Embra Care · Laboratório de Machine Learning (IFRS)</title>
 <style>
-:root {
-  --bg: #f3f6fb;
-  --card: #ffffff;
-  --ink: #172033;
-  --muted: #64748b;
-  --primary: #2447a8;
-  --light: #e7efff;
-  --cyan: #0e7490;
-  --border: #dce3ee;
-  --danger: #991b1b;
-  --danger-bg: #fee2e2;
-  --success: #166534;
-  --success-bg: #dcfce7;
-  --warning: #92400e;
-  --warning-bg: #fef3c7;
-}
-
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--ink);
-  font-family: Arial, Helvetica, sans-serif;
-  line-height: 1.5;
-}
-
-header {
-  background: linear-gradient(120deg, #172554, #2447a8, #0e7490);
-  color: white;
-  padding: 28px 18px;
-}
-
-.header-inner, main, footer {
-  max-width: 1100px;
-  margin: auto;
-}
-
-header h1 {
-  margin: 0 0 8px;
-  font-size: clamp(23px, 4vw, 34px);
-}
-
-header p { margin: 0; color: #e0eaff; }
-
-main { padding: 22px 15px 45px; }
-
-nav {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-}
-
-nav button {
-  flex: 1;
-  min-width: 120px;
-  background: white;
-  color: var(--ink);
-  border: 1px solid var(--border);
-}
-
-nav button.active {
-  background: var(--primary);
-  color: white;
-}
-
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 22px;
-  margin-bottom: 18px;
-  box-shadow: 0 3px 12px rgba(20, 40, 80, 0.04);
-}
-
-h2 { font-size: 21px; margin-top: 0; }
-h3 { font-size: 16px; margin-bottom: 8px; }
-
-.muted { color: var(--muted); font-size: 14px; }
-
-button, .file-label {
-  border: none;
-  border-radius: 8px;
-  background: var(--primary);
-  color: white;
-  padding: 11px 15px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-button:hover, .file-label:hover { filter: brightness(1.08); }
-
-button:disabled { opacity: .5; cursor: not-allowed; }
-
-button.secondary {
-  background: #e8eef8;
-  color: #1e3a70;
-  border: 1px solid var(--border);
-}
-
-button.teal { background: var(--cyan); }
-
-input[type="file"] {
-  display: block;
-  width: 100%;
-  margin: 15px 0;
-  padding: 12px;
-  background: #f8fafc;
-  border: 1px dashed #94a3b8;
-  border-radius: 8px;
-}
-
-input[type="text"], textarea, select {
-  width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 12px;
-  font: inherit;
-  background: white;
-  color: var(--ink);
-}
-
-textarea { min-height: 105px; resize: vertical; }
-
-label { display: block; font-weight: 600; margin: 12px 0 6px; }
-
-.actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 15px; }
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-  gap: 12px;
-}
-
-.stat {
-  border: 1px solid var(--border);
-  background: #f8fafc;
-  border-radius: 10px;
-  padding: 15px;
-}
-
-.stat .number {
-  display: block;
-  color: var(--primary);
-  font-size: 25px;
-  font-weight: 700;
-}
-
-.stat .caption { color: var(--muted); font-size: 13px; }
-
-.alert {
-  padding: 13px 15px;
-  border-radius: 9px;
-  margin: 15px 0;
-  border: 1px solid;
-}
-
-.alert.error { background: var(--danger-bg); color: var(--danger); border-color: #fecaca; }
-.alert.success { background: var(--success-bg); color: var(--success); border-color: #bbf7d0; }
-.alert.warning { background: var(--warning-bg); color: var(--warning); border-color: #fcd34d; }
-
-.hidden { display: none !important; }
-
-.table-wrap { overflow-x: auto; max-width: 100%; }
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  margin-top: 12px;
-}
-
-th, td {
-  padding: 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
-  overflow-wrap: anywhere;
-}
-
-th { background: #f1f5f9; }
-
-.badge {
-  display: inline-block;
-  background: var(--light);
-  color: #1e3a8a;
-  padding: 5px 9px;
-  border-radius: 20px;
-  font-size: 12px;
-  margin: 3px;
-}
-
-.result-box {
-  padding: 18px;
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-top: 15px;
-}
-
-.result-box.urgent {
-  background: var(--danger-bg);
-  border: 2px solid #dc2626;
-  color: var(--danger);
-}
-
-.result-title { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
-
-footer {
-  padding: 0 15px 25px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.section { display: none; }
-.section.active { display: block; }
-
-pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 600px) {
-  .card { padding: 16px; }
-  nav button { min-width: 44%; }
-}
+:root{--bg:#f7f4ee;--card:#fff;--tx:#18202f;--mut:#5f6b82;--pri:#0d5c5f;--pri-hover:#094446;--ok:#15803d;--bad:#c92a2a;--bd:#e2d9cc;--soft:#e6f1f2;--gold:#c5a059;box-sizing:border-box}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d121d;--card:#161d2c;--tx:#e8ecf5;--mut:#9aa6bf;--pri:#14b8a6;--pri-hover:#0d9488;--ok:#4ade80;--bad:#ff8787;--bd:#2a3550;--soft:#132e32;--gold:#d4af37}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:1100px;margin:0 auto;padding:16px}
+header{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;margin-bottom:20px;box-shadow:0 4px 12px rgba(13,92,95,0.06);position:relative;overflow:hidden}
+header::before{content:"";position:absolute;top:0;right:0;width:120px;height:120px;background:radial-gradient(circle, rgba(197,160,89,0.15) 0%, transparent 70%);border-radius:0 0 0 100%;pointer-events:none}
+.brand h1{font-size:1.6rem;margin:0;color:var(--pri);font-family:serif;letter-spacing:0.5px}
+.brand p{margin:4px 0 0;font-size:0.9rem;color:var(--mut)}
+h2{font-size:1.2rem;margin:0 0 10px;color:var(--pri)}h3{font-size:1rem;margin:14px 0 6px}
+p{margin:0 0 8px}.m{color:var(--mut)}.hide{display:none!important}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 6px rgba(0,0,0,0.03)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.st{background:var(--card);border:2px solid var(--bd);border-radius:12px;padding:10px;text-align:center;font-size:.85rem;transition:.3s}
+.st b{display:block;font-size:1.4rem}
+.st.done{border-color:var(--ok)}.st.act{border-color:var(--pri);background:var(--soft)}
+button,select{font:inherit;border-radius:10px;border:1px solid var(--bd);padding:9px 14px;background:var(--card);color:var(--tx);cursor:pointer}
+button.p{background:var(--pri);color:#fff;border-color:var(--pri);font-weight:600}
+button.p:hover{background:var(--pri-hover)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.drop{border:2px dashed var(--bd);border-radius:12px;padding:24px;text-align:center;margin:10px 0;background:rgba(255,255,255,0.5)}
+.drop.over{border-color:var(--pri);background:var(--soft)}
+.msg{background:#fdf6e2;color:#8a5300;border-radius:10px;padding:10px 14px;margin-bottom:14px;border:1px solid #fae19b}
+.ok{background:var(--soft);color:var(--ok);border:1px solid #bbf7d0}
+.priv{font-size:.85rem;color:var(--mut)}
+.sc{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{border-bottom:1px solid var(--bd);padding:8px 10px;text-align:left}
+td.n,th.n{text-align:right}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.k{background:var(--soft);border-radius:12px;padding:12px;border:1px solid #cce3e4}.k small{color:var(--mut);display:block}.k b{font-size:1.4rem;color:var(--pri)}
+.bar{height:12px;background:var(--bd);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--pri);width:0;transition:width .4s}
+.bl{display:grid;grid-template-columns:130px 1fr 40px;gap:8px;align-items:center;margin:6px 0;font-size:.9rem}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.cm td,.cm th{text-align:center;border:2px solid var(--card)}
+.cm td{font-size:1.2rem;font-weight:700;background:var(--soft)}
+.cm td small{display:block;font-size:.7rem;font-weight:400;color:var(--mut)}
+textarea{width:100%;min-height:90px;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
+.res{font-size:1.2rem;font-weight:700;margin:10px 0;color:var(--pri)}
+.ring{width:100px;height:100px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:1.2rem}
+.ring i{display:grid;place-items:center;width:74px;height:74px;border-radius:50%;background:var(--card);font-style:normal}
 </style>
 </head>
-
 <body>
+<div class="w">
 <header>
-  <div class="header-inner">
-    <h1>Laboratório de Machine Learning</h1>
-    <p>Classificação de mensagens maternas com Naive Bayes</p>
-  </div>
+ <div class="brand">
+  <h1>Embra Care</h1>
+  <p>Ao seu lado, da gestação ao nascimento. Tecnologia e Cuidado Materno[span_3](start_span)[span_3](end_span)</p>
+ </div>
+ <div class="row">
+  <button id="bBack" class="hide">⬅️ Voltar etapa</button>
+  <button id="bNew">🔄 Reiniciar experimento</button>
+ </div>
 </header>
 
-<main>
-  <nav aria-label="Etapas do laboratório">
-    <button class="active" data-step="1">1. Dados</button>
-    <button data-step="2">2. Explorar</button>
-    <button data-step="3">3. Treinar</button>
-    <button data-step="4">4. Classificar</button>
-  </nav>
+<div class="steps" id="steps"></div>
+<div id="msg" class="msg hide" role="alert"></div>
 
-  <div id="global-message" class="alert hidden" role="status"></div>
+<!-- ETAPA 1: DADOS -->
+<section class="c" id="s1">
+ <h2>1. Carregamento da Base de Dados (Pré-Natal)</h2>
+ <p>Envie um conjunto de dados estruturado (.csv ou .txt) ou utilize a base de exemplo da Embra Care contendo mensagens de texto livre de gestantes[span_4](start_span)[span_4](end_span)[span_5](start_span)[span_5](end_span).</p>
+ <div class="drop" id="drop">
+  <p>Arraste um arquivo CSV/TXT aqui ou clique para selecionar</p>
+  <input type="file" id="file" accept=".csv,.txt" class="hide">
+  <div class="row" style="justify-content:center;margin-top:10px">
+   <button id="bSel">📁 Selecionar arquivo</button>
+   <button id="bSub" class="p">Submeter dados</button>
+   <button id="bEx">📋 Usar base sintética Embra Care</button>
+  </div>
+  <p class="m" id="finfo" style="margin-top:10px">Nenhum arquivo selecionado[span_6](start_span)[span_6](end_span).</p>
+ </div>
+ <p class="priv">🔒 O processamento de linguagem natural e classificação ocorre localmente no navegador[span_7](start_span)[span_7](end_span).</p>
+</section>
 
-  <!-- ETAPA 1 -->
-  <section id="step-1" class="section active">
-    <div class="card">
-      <h2>1. Importar base de dados</h2>
-      <p class="muted">
-        Selecione um arquivo CSV com duas colunas: <b>texto</b> e <b>classe</b>.
-        O arquivo pode usar vírgula ou ponto e vírgula como separador.
-      </p>
+<!-- ETAPA 2: CONFIGURAÇÃO E TREINAMENTO -->
+<section class="c hide" id="s2">
+ <h2>2. Configuração do Modelo e Algoritmo</h2>
+ <div class="grid" id="sum"></div>
+ <div class="row" style="margin:14px 0">
+  <label>Coluna de Texto/Mensagens: <select id="selT"></select></label>
+  <label>Coluna de Classe/Urgência: <select id="selC"></select></label>
+ </div>
+ <p class="m">Pré-visualização dos registros:</p>
+ <div class="sc" id="tbl"></div>
+ 
+ <h3 style="margin-top:20px">Escolha o Algoritmo (Atividade IFRS)</h3>
+ <div class="row">
+  <select id="algo" style="flex-grow:1;max-width:350px">
+   <option value="nb">Naive Bayes</option>
+   <option value="knn">KNN (K-Nearest Neighbors)</option>
+   <option value="dt">Árvore de Decisão (Decision Tree)</option>
+   <option value="lr">Regressão Logística</option>
+  </select>
+  <button id="bTrain" class="p">🧠 Treinar Modelo</button>
+ </div>
+ <p class="m" id="adesc" style="margin-top:8px"></p>
+ <div id="prog" class="hide" style="margin-top:12px">
+  <div class="bar"><i id="pbar"></i></div>
+  <p class="m" id="ptxt" style="margin-top:4px"></p>
+ </div>
+</section>
 
-      <label for="csv-file">Arquivo CSV</label>
-      <input type="file" id="csv-file" accept=".csv,text/csv">
+<!-- ETAPA 3: AVALIAÇÃO E MÉTRICAS -->
+<section class="c hide" id="s3">
+ <h2>3. Avaliação e Métricas de Desempenho</h2>
+ <p id="done" class="ok" style="padding:8px 12px;border-radius:10px">✅ Modelo treinado e avaliado com sucesso no conjunto de teste (20%)[span_8](start_span)[span_8](end_span)!</p>
+ <div class="grid" id="stats" style="margin:14px 0"></div>
+ 
+ <h3>Matriz de Confusão</h3>
+ <div class="sc" id="cm"></div>
+ <p class="m" id="cmnote"></p>
 
-      <div class="grid">
-        <div class="stat">
-          <span class="number" id="file-count">0</span>
-          <span class="caption">Mensagens importadas</span>
-        </div>
-        <div class="stat">
-          <span class="number" id="class-count">0</span>
-          <span class="caption">Classes encontradas</span>
-        </div>
-      </div>
+ <div class="two" style="margin-top:16px">
+  <div><h3>Distribuição das Classes</h3><div id="dist"></div></div>
+  <div><h3>Acertos vs Erros</h3><div id="hits"></div></div>
+ </div>
 
-      <p id="file-info" class="muted">Nenhum arquivo carregado.</p>
+ <div class="row" style="margin-top:20px;justify-content:flex-end">
+  <button id="bGoTest" class="p">🔎 Ir para Teste de Nova Mensagem</button>
+ </div>
+</section>
 
-      <div class="actions">
-        <button id="go-explore" disabled>Explorar dados</button>
-      </div>
-    </div>
+<!-- ETAPA 4: TESTE DE NOVOS DADOS E RELATÓRIO CONSOLIDADO -->
+<section class="c hide" id="s4">
+ <h2>4. Testar Nova Mensagem da Gestante</h2>
+ <p>Insira uma nova mensagem de texto livre para classificar em tempo real utilizando o modelo treinado[span_9](start_span)[span_9](end_span).</p>
+ <textarea id="txt" placeholder="Ex: Estou com sangramento e cólicas fortes desde cedo..."></textarea>
+ <button id="bCls" class="p" style="margin-top:8px">🔮 Classificar Mensagem</button>
+ <div id="out" class="hide" style="margin-top:12px;background:var(--soft);padding:14px;border-radius:10px;border:1px solid #b2d8db">
+  <div class="res" id="pred"></div>
+  <p><b>Confiança:</b> <span id="conf"></span></p>
+  <div class="sc" id="probs"></div>
+ </div>
 
-    <div class="card">
-      <h2>Prévia das mensagens</h2>
-      <p class="muted">As primeiras 10 linhas válidas do arquivo serão exibidas abaixo.</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Texto</th><th>Classe original</th></tr>
-          </thead>
-          <tbody id="preview-body">
-            <tr><td colspan="2">Importe um CSV para visualizar os dados.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+ <h2 style="margin-top:30px">📊 Relatório Consolidado (Atividade IFRS)</h2>
+ <p class="m">Tabela comparativa com os testes executados para cada algoritmo[span_10](start_span)[span_10](end_span):</p>
+ <div class="sc">
+  <table>
+   <thead>
+    <tr>
+     <th>Algoritmo</th>
+     <th class="n">Acurácia</th>
+     <th class="n">Precisão</th>
+     <th class="n">Recall</th>
+     <th class="n">F1-Score</th>
+     <th>Status</th>
+    </tr>
+   </thead>
+   <tbody id="summaryTable">
+    <tr><td colspan="6" class="m" style="text-align:center">Nenhum algoritmo executado ainda. Treine ao menos um modelo acima.</td></tr>
+   </tbody>
+  </table>
+ </div>
+</section>
 
-  <!-- ETAPA 2 -->
-  <section id="step-2" class="section">
-    <div class="card">
-      <h2>2. Exploração da base</h2>
-      <div class="grid">
-        <div class="stat">
-          <span class="number" id="explore-total">0</span>
-          <span class="caption">Mensagens válidas</span>
-        </div>
-        <div class="stat">
-          <span class="number" id="explore-classes">0</span>
-          <span class="caption">Classes distintas</span>
-        </div>
-      </div>
-
-      <h3>Distribuição por classe</h3>
-      <div id="class-distribution"></div>
-
-      <div class="actions">
-        <button class="secondary" data-goto="1">Voltar aos dados</button>
-        <button data-goto="3">Ir para treinamento</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ETAPA 3 -->
-  <section id="step-3" class="section">
-    <div class="card">
-      <h2>3. Treinamento e avaliação</h2>
-      <p>
-        O simulador usa o algoritmo <b>Naive Bayes Multinomial</b>.
-        Uma parte dos dados é reservada para teste; o restante é usado no
-        treinamento. Ao final, o modelo para classificação é treinado com
-        toda a base importada.
-      </p>
-
-      <label for="algorithm">Algoritmo</label>
-      <select id="algorithm">
-        <option value="nb">Naive Bayes Multinomial</option>
-      </select>
-
-      <div class="actions">
-        <button id="train-button">Treinar modelo</button>
-        <button class="secondary" data-goto="2">Voltar</button>
-      </div>
-
-      <div id="training-message" class="alert hidden"></div>
-    </div>
-
-    <div id="metrics-card" class="card hidden">
-      <h2>Resultados da avaliação</h2>
-      <p class="muted">
-        Métricas calculadas sobre o conjunto de teste separado do treinamento.
-        A divisão é aleatória e pode produzir resultados diferentes em cada execução.
-      </p>
-
-      <div class="grid">
-        <div class="stat">
-          <span class="number" id="metric-accuracy">—</span>
-          <span class="caption">Acurácia</span>
-        </div>
-        <div class="stat">
-          <span class="number" id="metric-precision">—</span>
-          <span class="caption">Precisão macro</span>
-        </div>
-        <div class="stat">
-          <span class="number" id="metric-recall">—</span>
-          <span class="caption">Recall macro</span>
-        </div>
-        <div class="stat">
-          <span class="number" id="metric-f1">—</span>
-          <span class="caption">F1 macro</span>
-        </div>
-      </div>
-
-      <p id="evaluation-size" class="muted"></p>
-
-      <h3>Matriz de confusão</h3>
-      <p class="muted">Linhas representam a classe real; colunas, a classe prevista.</p>
-      <div class="table-wrap" id="confusion-container"></div>
-
-      <div class="actions">
-        <button id="download-report" class="teal">Exportar relatório CSV</button>
-        <button data-goto="4">Testar mensagens</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ETAPA 4 -->
-  <section id="step-4" class="section">
-    <div class="card">
-      <h2>4. Classificação de novas mensagens</h2>
-      <p class="muted">
-        Digite uma mensagem para obter a classe prevista pelo modelo.
-        As regras de alerta de urgência são executadas separadamente e têm
-        prioridade no encaminhamento.
-      </p>
-
-      <label for="message-input">Mensagem materna</label>
-      <textarea id="message-input" placeholder="Ex.: Estou com hemorragia"></textarea>
-
-      <div class="actions">
-        <button id="classify-button">Classificar mensagem</button>
-        <button id="clear-input" class="secondary">Limpar texto</button>
-      </div>
-
-      <div id="classification-result" class="result-box hidden" aria-live="polite">
-        <div class="result-title" id="result-title"></div>
-        <p id="result-class"></p>
-        <p id="result-confidence"></p>
-        <p id="result-explanation"></p>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Histórico de classificações</h2>
-      <div class="actions">
-        <button id="clear-history" class="secondary">Limpar histórico</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Horário</th>
-              <th>Mensagem</th>
-              <th>Classe prevista</th>
-              <th>Alerta humano</th>
-            </tr>
-          </thead>
-          <tbody id="history-body">
-            <tr><td colspan="4">Nenhuma mensagem classificada.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Limitações e segurança</h3>
-      <p class="muted">
-        Este laboratório tem finalidade acadêmica. A detecção por palavras-chave
-        não é uma triagem clínica validada. A ausência de alerta não significa
-        ausência de risco. Em um sistema real, o encaminhamento deve seguir
-        protocolos definidos e validados por profissionais de saúde.
-      </p>
-    </div>
-  </section>
-</main>
-
-<footer>
-  Laboratório de Machine Learning — demonstração educacional executada no navegador.
-</footer>
+</div>
 
 <script>
-"use strict";
+const $=s=>document.querySelector(s);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct=v=>(v*100).toFixed(1).replace('.',',')+'%';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-/* ==========================================================
-   ESTADO DA APLICAÇÃO
-   ========================================================== */
+const EXEMPLO=`mensagem,classe
+"Meninas, com quantas semanas a gente faz aquela ultrassom da translucência nucal mesmo?",rotina
+"Bom dia! Posso tomar aquele chá de gengibre pra enjoo ou faz mal pro bebê?",rotina
+"Esqueci de tomar a vitamina de ferro ontem à noite, tomo duas hoje ou sigo normal?",rotina
+"Estou com 28 semanas e sinto o neném mexer bastante, é normal?",rotina
+"Qual o peso esperado do bebê no sexto mês?",rotina
+"Minhas pernas estão inchando muito no final do dia, o que posso fazer para aliviar?",sintoma_leve
+"Estando com muita azia depois do jantar, tem algum remédio liberado?",sintoma_leve
+"Sinto umas pontadinhas na barriga de vez em quando, parece que estica a pele.",sintoma_leve
+"Minha dor nas costas está insuportável, posso colocar bolsa térmica?",sintoma_leve
+"Tô com muita tontura quando levanto rápido da cama.",sintoma_leve
+"Socorro, estou com um sangramento vivo e cólicas muito fortes desde cedo!",urgencia_critica
+"Minha visão ficou toda turva de repente e estou com uma dor de cabeça que não passa com nada.",urgencia_critica
+"Estou sentindo contrações muito fortes e ritmadas a cada 5 minutos, acho que a bolsa rompeu.",urgencia_critica
+"O bebê parou de mexer o dia todo, estou muito preocupada, o que faço?",urgencia_critica
+"Estou com febre alta de 39 graus e muita dor ao urinar.",urgencia_critica`;
 
-let registros = [];
-let classesBase = [];
-let modelo = null;
-let resultadoAvaliacao = null;
-let historico = [];
+/* ===== Motores dos 4 Algoritmos exigidos ===== */
+function tok(t){return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>1)}
 
-const el = id => document.getElementById(id);
-
-function mensagemGlobal(texto, tipo = "success") {
-  const caixa = el("global-message");
-  caixa.textContent = texto;
-  caixa.className = "alert " + tipo;
-}
-
-function limparMensagemGlobal() {
-  const caixa = el("global-message");
-  caixa.textContent = "";
-  caixa.className = "alert hidden";
-}
-
-function normalizar(texto) {
-  return String(texto ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[’']/g, " ")
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function tokenizar(texto) {
-  return normalizar(texto)
-    .split(/\s+/)
-    .filter(p => p.length > 1);
-}
-
-/* ==========================================================
-   ALERTA DE URGÊNCIA
-   Esta função não gera uma classe de treinamento.
-   ========================================================== */
-
-function detectarUrgencia(texto) {
-  const t = normalizar(texto);
-
-  const regras = [
-    /\bhemorragia\b/,
-    /\bhemorragias\b/,
-    /\bsangramento\b/,
-    /\bsangramentos\b/,
-    /\bsangrando\b/,
-    /\bperda de sangue\b/,
-    /\bdor\b/,
-    /\bdores\b/,
-    /\bfebre\b/,
-    /\bpressao alta\b/,
-    /\bpressao arterial alta\b/,
-    /\bpressao muito alta\b/,
-    /\bbebe nao se mexe\b/,
-    /\bbebe nao mexe\b/,
-    /\bbebe parou de mexer\b/,
-    /\bbebe mexe menos\b/,
-    /\bbebe esta mexendo menos\b/,
-    /\bmovimentos fetais diminuidos\b/,
-    /\bfalta de ar\b/
-  ];
-
-  return regras.some(regra => regra.test(t));
-}
-
-/* ==========================================================
-   LEITURA DE CSV COM ASPAS, VÍRGULAS E QUEBRAS DE LINHA
-   ========================================================== */
-
-function detectarSeparador(texto) {
-  const primeiraLinha = (texto.split(/\r?\n/).find(l => l.trim()) || "");
-  const candidatos = [",", ";", "\t"];
-  let melhor = ",";
-  let maior = -1;
-
-  for (const separador of candidatos) {
-    let n = 0;
-    let aspas = false;
-
-    for (let i = 0; i < primeiraLinha.length; i++) {
-      const c = primeiraLinha[i];
-
-      if (c === '"') {
-        if (aspas && primeiraLinha[i + 1] === '"') {
-          i++;
-        } else {
-          aspas = !aspas;
-        }
-      } else if (c === separador && !aspas) {
-        n++;
-      }
-    }
-
-    if (n > maior) {
-      maior = n;
-      melhor = separador;
-    }
+const ALGOS={
+ nb:{
+  nome:'Naive Bayes',
+  desc:'Classificador probabilístico baseado no Teorema de Bayes com suposição de independência entre termos[span_11](start_span)[span_11](end_span).',
+  treinar(dados,classes){
+   const m={classes,docs:{},cont:{},tot:{},vocab:{},n:dados.length};
+   classes.forEach(c=>{m.docs[c]=0;m.cont[c]={};m.tot[c]=0});
+   dados.forEach(([t,c])=>{m.docs[c]++;tok(t).forEach(w=>{m.cont[c][w]=(m.cont[c][w]||0)+1;m.tot[c]++;m.vocab[w]=1})});
+   m.V=Object.keys(m.vocab).length; return m;
+  },
+  prever(m,texto){
+   const ws=tok(texto),lw=(c,w)=>Math.log(((m.cont[c][w]||0)+1)/(m.tot[c]+m.V));
+   const lg=m.classes.map(c=>{let s=Math.log(m.docs[c]/m.n);ws.forEach(w=>{if(m.vocab[w])s+=lw(c,w)});return s});
+   const mx=Math.max(...lg),ex=lg.map(v=>Math.exp(v-mx)),z=ex.reduce((a,b)=>a+b,0);
+   const pr=ex.map(v=>v/z),i=pr.indexOf(Math.max(...pr));
+   return{classe:m.classes[i],probs:pr,idx:i};
   }
-
-  return melhor;
-}
-
-function analisarCSV(texto, separador) {
-  texto = texto.replace(/^\uFEFF/, "");
-
-  const linhas = [];
-  let linha = [];
-  let campo = "";
-  let aspas = false;
-
-  for (let i = 0; i < texto.length; i++) {
-    const c = texto[i];
-
-    if (c === '"') {
-      if (aspas && texto[i + 1] === '"') {
-        campo += '"';
-        i++;
-      } else {
-        aspas = !aspas;
-      }
-    } else if (c === separador && !aspas) {
-      linha.push(campo);
-      campo = "";
-    } else if ((c === "\n" || c === "\r") && !aspas) {
-      if (c === "\r" && texto[i + 1] === "\n") i++;
-
-      linha.push(campo);
-      if (linha.some(v => String(v).trim() !== "")) {
-        linhas.push(linha);
-      }
-
-      linha = [];
-      campo = "";
-    } else {
-      campo += c;
-    }
+ },
+ knn:{
+  nome:'KNN (K-Nearest Neighbors)',
+  desc:'Classificador baseado em instâncias que calcula a similaridade de Jaccard entre o texto de teste e os dados de treino (K=3).',
+  treinar(dados,classes){ return {classes,dados}; },
+  prever(m,texto){
+   const ws=new Set(tok(texto));
+   const scored=m.dados.map(([t,c])=>{
+    const tw=new Set(tok(t));
+    const inter=[...ws].filter(x=>tw.has(x)).length;
+    const union=new Set([...ws,...tw]).size;
+    return {c,sim:union?inter/union:0};
+   });
+   scored.sort((a,b)=>b.sim-a.sim);
+   const k=Math.min(3,scored.length),neighbors=scored.slice(0,k);
+   const votes={}; m.classes.forEach(c=>votes[c]=0);
+   neighbors.forEach(n=>votes[n.c]+=(n.sim||0.01));
+   let best=m.classes[0],maxV=-1;
+   m.classes.forEach(c=>{if(votes[c]>maxV){maxV=votes[c];best=c}});
+   const idx=m.classes.indexOf(best);
+   const totalV=Object.values(votes).reduce((a,b)=>a+b,0)||1;
+   const probs=m.classes.map(c=>votes[c]/totalV);
+   return {classe:best,probs,idx};
   }
-
-  if (campo !== "" || linha.length) {
-    linha.push(campo);
-    if (linha.some(v => String(v).trim() !== "")) {
-      linhas.push(linha);
-    }
+ },
+ dt:{
+  nome:'Árvore de Decisão',
+  desc:'Modelo hierárquico baseado em regras de presença de palavras discriminantes extraídas do treinamento.',
+  treinar(dados,classes){
+   const wordScores={};
+   classes.forEach(c=>wordScores[c]={});
+   dados.forEach(([t,c])=>{
+    tok(t).forEach(w=>{wordScores[c][w]=(wordScores[c][w]||0)+1;});
+   });
+   return {classes,wordScores};
+  },
+  prever(m,texto){
+   const ws=new Set(tok(texto));
+   const scores=m.classes.map(c=>{
+    let score=0;
+    Object.keys(m.wordScores[c]).forEach(w=>{if(ws.has(w))score+=m.wordScores[c][w];});
+    return score;
+   });
+   const sum=scores.reduce((a,b)=>a+b,0)||1;
+   const probs=scores.map(s=>s/sum);
+   const maxS=Math.max(...scores);
+   const idx=maxS===0?0:scores.indexOf(maxS);
+   return {classe:m.classes[idx],probs,idx};
   }
-
-  return linhas;
-}
-
-function importarCSV(texto) {
-  const linhas = analisarCSV(texto, detectarSeparador(texto));
-
-  if (linhas.length < 2) {
-    throw new Error("O arquivo não contém dados suficientes.");
-  }
-
-  const cabecalho = linhas[0].map(v =>
-    normalizar(v).replace(/[\s_-]+/g, "")
-  );
-
-  const idxTexto = cabecalho.findIndex(v =>
-    ["texto", "mensagem", "mensagens", "text", "message"].includes(v)
-  );
-
-  const idxClasse = cabecalho.findIndex(v =>
-    ["classe", "class", "categoria", "label", "rotulo"].includes(v)
-  );
-
-  if (idxTexto < 0 || idxClasse < 0) {
-    throw new Error(
-      "Cabeçalho não reconhecido. O CSV deve conter as colunas texto e classe."
-    );
-  }
-
-  const saida = [];
-
-  for (let i = 1; i < linhas.length; i++) {
-    const textoLinha = String(linhas[i][idxTexto] ?? "").trim();
-    const classeLinha = String(linhas[i][idxClasse] ?? "").trim();
-
-    if (textoLinha && classeLinha) {
-      saida.push({ texto: textoLinha, classe: classeLinha });
-    }
-  }
-
-  if (!saida.length) {
-    throw new Error("Nenhuma linha válida foi encontrada.");
-  }
-
-  return saida;
-}
-
-el("csv-file").addEventListener("change", async evento => {
-  limparMensagemGlobal();
-
-  const arquivo = evento.target.files?.[0];
-  if (!arquivo) return;
-
-  try {
-    const texto = await arquivo.text();
-    const novosRegistros = importarCSV(texto);
-
-    registros = novosRegistros;
-    classesBase = [...new Set(registros.map(r => r.classe))].sort();
-
-    modelo = null;
-    resultadoAvaliacao = null;
-    historico = [];
-
-    el("file-count").textContent = registros.length;
-    el("class-count").textContent = classesBase.length;
-    el("file-info").textContent =
-      "Arquivo: " + arquivo.name + " | Tamanho: " +
-      (arquivo.size / 1024).toFixed(1) + " KB";
-
-    el("go-explore").disabled = false;
-
-    mostrarPrevia();
-    mostrarDistribuicao();
-
-    mensagemGlobal(
-      "Importação concluída: " + registros.length +
-      " mensagens válidas e " + classesBase.length + " classes.",
-      "success"
-    );
-  } catch (erro) {
-    registros = [];
-    classesBase = [];
-    modelo = null;
-    resultadoAvaliacao = null;
-
-    el("file-count").textContent = "0";
-    el("class-count").textContent = "0";
-    el("go-explore").disabled = true;
-
-    mensagemGlobal("Erro na importação: " + erro.message, "error");
-  }
-});
-
-function mostrarPrevia() {
-  const corpo = el("preview-body");
-  corpo.replaceChildren();
-
-  registros.slice(0, 10).forEach(r => {
-    const tr = document.createElement("tr");
-    const tdTexto = document.createElement("td");
-    const tdClasse = document.createElement("td");
-
-    tdTexto.textContent = r.texto;
-    tdClasse.textContent = r.classe;
-
-    tr.append(tdTexto, tdClasse);
-    corpo.appendChild(tr);
-  });
-}
-
-function mostrarDistribuicao() {
-  el("explore-total").textContent = registros.length;
-  el("explore-classes").textContent = classesBase.length;
-
-  const caixa = el("class-distribution");
-  caixa.replaceChildren();
-
-  classesBase.forEach(classe => {
-    const n = registros.filter(r => r.classe === classe).length;
-    const percentual = 100 * n / registros.length;
-
-    const linha = document.createElement("div");
-    linha.style.margin = "12px 0";
-
-    const rotulo = document.createElement("div");
-    rotulo.textContent = classe + ": " + n + " (" +
-      percentual.toFixed(1) + "%)";
-
-    const barra = document.createElement("div");
-    barra.style.height = "10px";
-    barra.style.background = "#dbeafe";
-    barra.style.borderRadius = "10px";
-    barra.style.overflow = "hidden";
-    barra.style.marginTop = "5px";
-
-    const preenchimento = document.createElement("div");
-    preenchimento.style.width = percentual + "%";
-    preenchimento.style.height = "100%";
-    preenchimento.style.background = "#2447a8";
-
-    barra.appendChild(preenchimento);
-    linha.append(rotulo, barra);
-    caixa.appendChild(linha);
-  });
-}
-
-/* ==========================================================
-   DIVISÃO ALEATÓRIA POR CLASSE
-   ========================================================== */
-
-function dividirDados(lista, proporcaoTeste = 0.2) {
-  const grupos = {};
-
-  lista.forEach(r => {
-    if (!grupos[r.classe]) grupos[r.classe] = [];
-    grupos[r.classe].push(r);
-  });
-
-  const treino = [];
-  const teste = [];
-
-  Object.values(grupos).forEach(grupoOriginal => {
-    const grupo = grupoOriginal.slice();
-
-    for (let i = grupo.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [grupo[i], grupo[j]] = [grupo[j], grupo[i]];
-    }
-
-    let nTeste = grupo.length > 1
-      ? Math.max(1, Math.min(grupo.length - 1,
-          Math.round(grupo.length * proporcaoTeste)))
-      : 0;
-
-    teste.push(...grupo.slice(0, nTeste));
-    treino.push(...grupo.slice(nTeste));
-  });
-
-  return { treino, teste };
-}
-
-/* ==========================================================
-   NAIVE BAYES MULTINOMIAL
-   ========================================================== */
-
-function treinarNaiveBayes(lista) {
-  if (!lista.length) throw new Error("Base de treinamento vazia.");
-
-  const contagemClasse = {};
-  const palavrasClasse = {};
-  const totalPalavras = {};
-  const vocabulario = new Set();
-
-  lista.forEach(r => {
-    const c = r.classe;
-
-    contagemClasse[c] = (contagemClasse[c] || 0) + 1;
-    palavrasClasse[c] ??= {};
-    totalPalavras[c] ??= 0;
-
-    tokenizar(r.texto).forEach(p => {
-      vocabulario.add(p);
-      palavrasClasse[c][p] = (palavrasClasse[c][p] || 0) + 1;
-      totalPalavras[c]++;
+ },
+ lr:{
+  nome:'Regressão Logística',
+  desc:'Modelo linear generalizado ponderado por coeficientes lexicais via função Softmax[span_12](start_span)[span_12](end_span).',
+  treinar(dados,classes){
+   const weights={};
+   classes.forEach(c=>weights[c]={bias:0,w:{}});
+   dados.forEach(([t,c])=>{
+    tok(t).forEach(w=>{
+     weights[c].w[w]=(weights[c].w[w]||0)+1;
     });
-  });
+   });
+   return {classes,weights};
+  },
+  prever(m,texto){
+   const ws=tok(texto);
+   const scores=m.classes.map(c=>{
+    let s=m.weights[c].bias;
+    ws.forEach(w=>{if(m.weights[c].w[w])s+=m.weights[c].w[w]*0.5;});
+    return s;
+   });
+   const mx=Math.max(...scores),ex=scores.map(v=>Math.exp(v-mx)),z=ex.reduce((a,b)=>a+b,0);
+   const probs=ex.map(v=>v/z),i=probs.indexOf(Math.max(...probs));
+   return {classe:m.classes[i],probs,idx:i};
+  }
+ }
+};
 
-  return {
-    contagemClasse,
-    palavrasClasse,
-    totalPalavras,
-    vocabulario,
-    total: lista.length,
-    classes: Object.keys(contagemClasse)
-  };
+/* ===== Estado da Aplicação ===== */
+let S;
+function zerar(){S={raw:null,nome:'',tam:0,head:[],rows:[],model:null,resHistory:[],stage:1}}
+zerar();
+
+const ETAPAS=[['📁','Dados'],['🧠','Treinamento'],['📊','Avaliação'],['🔎','Teste & Relatório']];
+function etapas(){
+ $('#steps').innerHTML=ETAPAS.map((e,i)=>{
+  const n=i+1,done=n<S.stage,act=n===S.stage;
+  return `<div class="st ${done?'done':''} ${act?'act':''}"><b>${done?'🟢':act?'🔵':'⚪'}</b>${e[1]}</div>`;
+ }).join('');
+ $('#bBack').classList.toggle('hide',S.stage<=1);
+}
+etapas();
+
+function aviso(t,ok){
+ const m=$('#msg');m.textContent=t;m.className='msg'+(ok?' ok':'');
+ m.classList.toggle('hide',!t);
 }
 
-function preverNaiveBayes(texto, m) {
-  const palavras = tokenizar(texto);
-  if (!palavras.length) {
-    throw new Error("A mensagem não contém palavras para classificar.");
-  }
+/* ===== Manipulação de Arquivos ===== */
+function parseCSV(txt){
+ txt=txt.replace(/^\uFEFF/,'');
+ const l1=txt.split(/\r?\n/)[0]||'';
+ const d=[',',';','\t'].map(c=>[c,l1.split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
+ const rows=[];let r=[],c='',q=false;
+ for(let i=0;i<txt.length;i++){const ch=txt[i];
+  if(q){if(ch==='"'){if(txt[i+1]==='"'){c+='"';i++}else q=false}else c+=ch}
+  else if(ch==='"')q=true;
+  else if(ch===d){r.push(c);c=''}
+  else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&txt[i+1]==='\n')i++;r.push(c);c='';if(r.some(x=>x.trim()))rows.push(r);r=[]}
+  else c+=ch}
+ r.push(c);if(r.some(x=>x.trim()))rows.push(r);
+ return rows.map(x=>x.map(v=>v.trim()))}
 
-  const v = Math.max(1, m.vocabulario.size);
-  const scores = {};
-
-  m.classes.forEach(c => {
-    let score = Math.log(m.contagemClasse[c] / m.total);
-
-    palavras.forEach(p => {
-      const frequencia = m.palavrasClasse[c][p] || 0;
-      const prob = (frequencia + 1) / (m.totalPalavras[c] + v);
-      score += Math.log(prob);
-    });
-
-    scores[c] = score;
-  });
-
-  const classesOrdenadas = Object.keys(scores).sort(
-    (a, b) => scores[b] - scores[a]
-  );
-
-  const classe = classesOrdenadas[0];
-  const maxScore = scores[classe];
-
-  // Normalização numérica para obter uma confiança relativa.
-  const soma = Object.values(scores).reduce(
-    (total, score) => total + Math.exp(score - maxScore), 0
-  );
-
-  const confianca = 1 / soma;
-
-  return { classe, confianca, scores };
+function carregar(t,nome,tam){
+ S.raw=t; S.nome=nome; S.tam=tam; aviso('');
+ const n=t.trim()?Math.max(parseCSV(t).length-1,0):0;
+ $('#finfo').innerHTML=`<b>${esc(nome)}</b> · ${(tam/1024).toFixed(1)} KB · ${n} registros`;
 }
 
-/* ==========================================================
-   AVALIAÇÃO EM DADOS DE TESTE
-   ========================================================== */
+$('#bSel').onclick=()=>$('#file').click();
+$('#file').onchange=e=>lerArquivo(e.target.files[0]);
+function lerArquivo(f){if(!f)return; f.text().then(t=>carregar(t,f.name,f.size))}
 
-function avaliarModelo(teste, modeloTeste) {
-  const todasClasses = [...new Set([
-    ...classesBase,
-    ...modeloTeste.classes
-  ])].sort();
+const dz=$('#drop');
+dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};
+dz.ondragleave=()=>dz.classList.remove('over');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');lerArquivo(e.dataTransfer.files[0])};
+$('#bEx').onclick=()=>carregar(EXEMPLO,'embra-care-prenatal.csv',new Blob([EXEMPLO]).size);
 
-  const matriz = {};
+/* Submeter Dados */
+$('#bSub').onclick=()=>{
+ if(!S.raw){aviso('⚠️ Selecione ou carregue um arquivo primeiro.');return}
+ const all=parseCSV(S.raw);
+ if(all.length<2||all[0].length<2){aviso('⚠️ Arquivo CSV inválido (necessário cabeçalho e 2 colunas).');return}
+ S.head=all[0]; S.rows=all.slice(1).filter(r=>r.length>=S.head.length);
+ if(!S.rows.length){aviso('⚠️ Nenhum registro válido encontrado.');return}
+ 
+ const h=S.head.map(x=>x.toLowerCase());
+ let ti=h.findIndex(x=>/text|mensag|frase|coment|review/.test(x));
+ let ci=h.findIndex(x=>/class|label|target|alvo|urgencia|sentim/.test(x));
+ if(ci<0)ci=S.head.length-1; if(ti<0)ti=0;
+ 
+ ['#selT','#selC'].forEach(s=>{$(s).innerHTML=S.head.map((x,i)=>`<option value="${i}">${esc(x)}</option>`).join('')});
+ $('#selT').value=ti; $('#selC').value=ci;
+ 
+ mostrarDadosPreview();
+ S.stage=2; etapas();
+ $('#s1').classList.add('hide'); $('#s2').classList.remove('hide');
+ window.scrollTo({top:0,behavior:'smooth'});
+};
 
-  todasClasses.forEach(real => {
-    matriz[real] = {};
-    todasClasses.forEach(prevista => {
-      matriz[real][prevista] = 0;
-    });
-  });
+function cols(){return [+$('#selT').value,+$('#selC').value]}
+function mostrarDadosPreview(){
+ const [ti,ci]=cols(), cl=[...new Set(S.rows.map(r=>r[ci]))];
+ $('#sum').innerHTML=[['Registros',S.rows.length],['Variáveis',S.head.length],['Alvo',S.head[ci]],['Classes',cl.length+' ('+cl.slice(0,3).join(', ')+')']].map(k=>`<div class="k"><small>${k[0]}</small><b>${esc(k[1])}</b></div>`).join('');
+ $('#tbl').innerHTML='<table><thead><tr>'+S.head.map((x,i)=>`<th>${esc(x)}${i===ci?' 🎯':''}</th>`).join('')+'</tr></thead><tbody>'+S.rows.slice(0,5).map(r=>'<tr>'+S.head.map((_,i)=>`<td>${esc(r[i])}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
+}
+$('#selT').onchange=$('#selC').onchange=mostrarDadosPreview;
 
-  let acertos = 0;
+/* ===== Treinamento e Avaliação Real ===== */
+$('#bTrain').onclick=async()=>{
+ const [ti,ci]=cols();
+ if(ti===ci){aviso('⚠️ A coluna de texto e de classe devem ser distintas.');return}
+ const dados=S.rows.map(r=>[r[ti],r[ci]]).filter(d=>d[0]&&d[1]);
+ const classes=[...new Set(dados.map(d=>d[1]))].sort();
+ if(classes.length<2){aviso('⚠️ A classe precisa ter pelo menos 2 categorias distintas.');return}
+ 
+ aviso(''); $('#bTrain').disabled=true; $('#prog').classList.remove('hide');
+ const passo=async(p,t)=>{$('#pbar').style.width=p+'\%';$('#ptxt').textContent=t;await sleep(350)};
+ 
+ await passo(20,'Particionando dados (80% treino / 20% teste)...');
+ const treino=[], teste=[];
+ classes.forEach(c=>{
+  const subset=dados.filter(d=>d[1]===c);
+  const k=Math.max(1,Math.round(subset.length*0.2));
+  teste.push(...subset.slice(0,k)); treino.push(...subset.slice(k));
+ });
 
-  teste.forEach(r => {
-    const prevista = preverNaiveBayes(r.texto, modeloTeste).classe;
-    matriz[r.classe][prevista]++;
+ await passo(60,'Executando treinamento do algoritmo selecionado...');
+ const algoKey=$('#algo').value, alg=ALGOS[algoKey];
+ const model=alg.treinar(treino,classes);
+ S.model=model;
 
-    if (prevista === r.classe) acertos++;
-  });
+ await passo(85,'Calculando matriz de confusão e métricas...');
+ const M=classes.map(()=>classes.map(()=>0));
+ teste.forEach(([t,c])=>{
+  const pred=alg.prever(model,t);
+  M[classes.indexOf(c)][pred.idx]++;
+ });
 
-  const n = teste.length;
-  let somaPrecisao = 0;
-  let somaRecall = 0;
-  let somaF1 = 0;
-  let classesComDados = 0;
+ const acertos=M.reduce((a,r,i)=>a+r[i],0);
+ const acc=acertos/(teste.length||1);
+ const met=classes.map((c,i)=>{
+  const tp=M[i][i], fp=M.reduce((a,r)=>a+r[i],0)-tp, fn=M[i].reduce((a,b)=>a+b,0)-tp;
+  const p=tp+fp?tp/(tp+fp):0, r=tp+fn?tp/(tp+fn):0;
+  return {p, r, f:p+r?2*p*r/(p+r):0};
+ });
+ const pMed=met.reduce((a,m)=>a+m.p,0)/met.length;
+ const rMed=met.reduce((a,m)=>a+m.r,0)/met.length;
+ const fMed=met.reduce((a,m)=>a+m.f,0)/met.length;
 
-  todasClasses.forEach(c => {
-    const vp = matriz[c][c];
-    let fp = 0;
-    let fn = 0;
+ S.res={M,classes,acc,p:pMed,r:rMed,f:fMed,acertos,teste:teste.length,dist:classes.map(c=>dados.filter(d=>d[1]===c).length)};
+ 
+ const existingIdx=S.resHistory.findIndex(x=>x.algoKey===algoKey);
+ const record={algoKey, nome:alg.nome, acc, p:pMed, r:rMed, f:fMed};
+ if(existingIdx>=0) S.resHistory[existingIdx]=record; else S.resHistory.push(record);
 
-    todasClasses.forEach(outra => {
-      if (outra !== c) {
-        fp += matriz[outra][c];
-        fn += matriz[c][outra];
-      }
-    });
+ await passo(100,'Concluído!');
+ $('#bTrain').disabled=false; $('#prog').classList.add('hide');
+ 
+ S.stage=3; etapas();
+ mostrarResultadosAvaliados();
+ $('#s2').classList.add('hide'); $('#s3').classList.remove('hide');
+ window.scrollTo({top:0,behavior:'smooth'});
+};
 
-    const precisao = vp + fp ? vp / (vp + fp) : 0;
-    const recall = vp + fn ? vp / (vp + fn) : 0;
-    const f1 = precisao + recall
-      ? 2 * precisao * recall / (precisao + recall)
-      : 0;
-
-    if (vp + fp + fn > 0) {
-      somaPrecisao += precisao;
-      somaRecall += recall;
-      somaF1 += f1;
-      classesComDados++;
-    }
-  });
-
-  return {
-    n,
-    acertos,
-    erros: n - acertos,
-    acuracia: n ? acertos / n : 0,
-    precisao: classesComDados ? somaPrecisao / classesComDados : 0,
-    recall: classesComDados ? somaRecall / classesComDados : 0,
-    f1: classesComDados ? somaF1 / classesComDados : 0,
-    matriz,
-    classes: todasClasses
-  };
+function mostrarResultadosAvaliados(){
+ const R=S.res;
+ $('#stats').innerHTML=[['Acurácia',pct(R.acc)],['Precisão',pct(R.p)],['Recall',pct(R.r)],['F1-Score',pct(R.f)],['Acertos',R.acertos+' / '+R.teste']].map(k=>`<div class="k"><small>${k[0]}</small><b>${k[1]}</b></div>`).join('');
+ 
+ let h='<table class="cm"><thead><tr><th></th>'+R.classes.map(c=>`<th>Previsto<br>${esc(c)}</th>`).join('')+'</tr></thead><tbody>';
+ R.M.forEach((r,i)=>{h+=`<tr><th>Real<br>${esc(R.classes[i])}</th>`+r.map((v,j)=>`<td>${v}<small>${i===j?'Acerto':'Erro'}</small></td>`).join('')+'</tr>'});
+ $('#cm').innerHTML=h+'</tbody></table>';
+ $('#cmnote').textContent='A diagonal principal representa as predições corretas.';
+ 
+ const tot=Math.max(...R.dist);
+ const COL=['#0d5c5f','#2563eb','#d97706','#7c3aed'];
+ $('#dist').innerHTML=R.classes.map((c,i)=>`<div class="bl"><span>${esc(c)}</span><div class="bar"><i style="width:${R.dist[i]/tot*100}%;background:${COL[i%4]}"></i></div><span>${R.dist[i]}</span></div>`).join('');
+ 
+ const a=R.acc*100;
+ $('#hits').innerHTML=`<div class="row"><div class="ring" style="background:conic-gradient(var(--ok) ${a}%,var(--bad) 0)"><i>${a.toFixed(0)}%</i></div><div><p>🟢 Acertos: <b>${R.acertos}</b></p><p>🔴 Erros: <b>${R.teste-R.acertos}</b></p></div></div>`;
 }
 
-function pct(n) {
-  return (n * 100).toFixed(1) + "%";
+$('#bGoTest').onclick=()=>{
+ S.stage=4; etapas();
+ $('#s3').classList.add('hide'); $('#s4').classList.remove('hide');
+ atualizarTabelaConsolidada();
+ window.scrollTo({top:0,behavior:'smooth'});
+};
+
+/* Teste de Novo Exemplo */
+$('#bCls').onclick=()=>{
+ if(!S.model){aviso('⚠️ Treine um modelo primeiro.');return}
+ const t=$('#txt').value.trim(); if(!t){aviso('⚠️ Digite uma mensagem.');return}
+ aviso(''); const alg=ALGOS[$('#algo').value], r=alg.prever(S.model,t), cl=S.model.classes;
+ $('#pred').innerHTML=`Classe prevista: <b>${esc(r.classe).toUpperCase()}</b>`;
+ $('#conf').textContent=pct(r.probs[r.idx]);
+ $('#probs').innerHTML='<table><thead><tr><th>Classe</th><th class="n">Probabilidade</th></tr></thead><tbody>'+cl.map((c,i)=>`<tr><td>${esc(c)}</td><td class="n">${pct(r.probs[i])}</td></tr>`).join('')+'</tbody></table>';
+ $('#out').classList.remove('hide');
+};
+
+function atualizarTabelaConsolidada(){
+ const tb=$('#summaryTable');
+ if(!S.resHistory.length){
+  tb.innerHTML='<tr><td colspan="6" class="m" style="text-align:center">Nenhum algoritmo executado ainda.</td></tr>';
+  return;
+ }
+ tb.innerHTML=S.resHistory.map(h=>`
+  <tr>
+   <td><b>${esc(h.nome)}</b></td>
+   <td class="n">${pct(h.acc)}</td>
+   <td class="n">${pct(h.p)}</td>
+   <td class="n">${pct(h.r)}</td>
+   <td class="n"><b>${pct(h.f)}</b></td>
+   <td><span class="ok" style="padding:2px 8px;border-radius:6px">Executado</span></td>
+  </tr>
+ `).join('');
 }
 
-function mostrarMatriz(av) {
-  const caixa = el("confusion-container");
-  caixa.replaceChildren();
-
-  const tabela = document.createElement("table");
-  const thead = document.createElement("thead");
-  const trHead = document.createElement("tr");
-
-  const canto = document.createElement("th");
-  canto.textContent = "Classe real / prevista";
-  trHead.appendChild(canto);
-
-  av.classes.forEach(c => {
-    const th = document.createElement("th");
-    th.textContent = c;
-    trHead.appendChild(th);
-  });
-
-  thead.appendChild(trHead);
-  tabela.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-
-  av.classes.forEach(real => {
-    const tr = document.createElement("tr");
-    const th = document.createElement("th");
-    th.textContent = real;
-    tr.appendChild(th);
-
-    av.classes.forEach(prevista => {
-      const td = document.createElement("td");
-      td.textContent = av.matriz[real][prevista];
-      tr.appendChild(td);
-    });
-
-    tbody.appendChild(tr);
-  });
-
-  tabela.appendChild(tbody);
-  caixa.appendChild(tabela);
-}
-
-/* ==========================================================
-   BOTÃO TREINAR
-   ========================================================== */
-
-el("train-button").addEventListener("click", () => {
-  limparMensagemGlobal();
-
-  if (registros.length < 2) {
-    mensagemGlobal("Importe pelo menos duas mensagens válidas.", "error");
-    return;
-  }
-
-  try {
-    const divisao = dividirDados(registros, 0.2);
-
-    if (!divisao.treino.length) {
-      throw new Error("Não há dados suficientes para treinamento.");
-    }
-
-    const modeloTeste = treinarNaiveBayes(divisao.treino);
-
-    resultadoAvaliacao = avaliarModelo(divisao.teste, modeloTeste);
-
-    // Modelo usado na interface final: treinado com todos os registros.
-    modelo = treinarNaiveBayes(registros);
-
-    el("metric-accuracy").textContent = pct(resultadoAvaliacao.acuracia);
-    el("metric-precision").textContent = pct(resultadoAvaliacao.precisao);
-    el("metric-recall").textContent = pct(resultadoAvaliacao.recall);
-    el("metric-f1").textContent = pct(resultadoAvaliacao.f1);
-
-    el("evaluation-size").textContent =
-      "Treinamento da avaliação: " + divisao.treino.length +
-      " mensagens; teste: " + divisao.teste.length +
-      " mensagens. Modelo final treinado com " + registros.length +
-      " mensagens.";
-
-    mostrarMatriz(resultadoAvaliacao);
-    el("metrics-card").classList.remove("hidden");
-
-    mensagemGlobal("Treinamento e avaliação concluídos.", "success");
-  } catch (erro) {
-    mensagemGlobal("Erro no treinamento: " + erro.message, "error");
-  }
-});
-
-/* ==========================================================
-   CLASSIFICAÇÃO: O ALERTA É INDEPENDENTE DA CLASSE PREVISTA
-   ========================================================== */
-
-function classificarMensagem() {
-  limparMensagemGlobal();
-
-  if (!modelo) {
-    mensagemGlobal("Importe a base e treine o modelo antes de classificar.", "error");
-    return;
-  }
-
-  const texto = el("message-input").value.trim();
-
-  if (!texto) {
-    mensagemGlobal("Digite uma mensagem para classificar.", "error");
-    return;
-  }
-
-  try {
-    // A regra é executada independentemente da previsão do modelo.
-    const urgencia = detectarUrgencia(texto);
-
-    // O modelo continua prevendo exclusivamente classes aprendidas no CSV.
-    const previsao = preverNaiveBayes(texto, modelo);
-
-    const caixa = el("classification-result");
-    caixa.classList.remove("hidden", "urgent");
-
-    if (urgencia) {
-      caixa.classList.add("urgent");
-
-      el("result-title").textContent =
-        "ALERTA: ENCAMINHAR PARA AVALIAÇÃO HUMANA";
-
-      el("result-class").textContent =
-        "Classe prevista pelo Naive Bayes: " + previsao.classe;
-
-      el("result-confidence").textContent =
-        "Confiança relativa estimada pelo modelo: " + pct(previsao.confianca);
-
-      el("result-explanation").textContent =
-        "A mensagem contém um termo associado à regra de alerta. " +
-        "A classe prevista pelo modelo NÃO cancela o alerta. " +
-        "Encaminhe para avaliação humana conforme o protocolo do serviço. " +
-        "Este mecanismo é demonstrativo e não substitui triagem clínica.";
-
-      mensagemGlobal(
-        "Alerta de encaminhamento humano ativado. A previsão do modelo não cancela o alerta.",
-        "warning"
-      );
-    } else {
-      el("result-title").textContent = "Classe prevista pelo modelo";
-
-      el("result-class").textContent = previsao.classe;
-
-      el("result-confidence").textContent =
-        "Confiança relativa estimada: " + pct(previsao.confianca);
-
-      el("result-explanation").textContent =
-        "A mensagem não acionou as regras de alerta configuradas. " +
-        "Isso NÃO garante ausência de risco. A classificação é experimental " +
-        "e deve ser interpretada com cautela.";
-    }
-
-    historico.unshift({
-      data: new Date().toLocaleString("pt-BR"),
-      texto,
-      classe: previsao.classe,
-      urgencia
-    });
-
-    mostrarHistorico();
-  } catch (erro) {
-    mensagemGlobal("Erro ao classificar: " + erro.message, "error");
-  }
-}
-
-el("classify-button").addEventListener("click", classificarMensagem);
-
-el("message-input").addEventListener("keydown", evento => {
-  if ((evento.ctrlKey || evento.metaKey) && evento.key === "Enter") {
-    classificarMensagem();
-  }
-});
-
-el("clear-input").addEventListener("click", () => {
-  el("message-input").value = "";
-  el("classification-result").classList.add("hidden");
-  limparMensagemGlobal();
-});
-
-/* ==========================================================
-   HISTÓRICO
-   ========================================================== */
-
-function mostrarHistorico() {
-  const corpo = el("history-body");
-  corpo.replaceChildren();
-
-  if (!historico.length) {
-    const tr = document.createElement("tr");
-    const td = document.createElement("td");
-    td.colSpan = 4;
-    td.textContent = "Nenhuma mensagem classificada.";
-    tr.appendChild(td);
-    corpo.appendChild(tr);
-    return;
-  }
-
-  historico.forEach(item => {
-    const tr = document.createElement("tr");
-
-    [
-      item.data,
-      item.texto,
-      item.classe,
-      item.urgencia ? "SIM — encaminhar para avaliação humana" : "Não acionado"
-    ].forEach(valor => {
-      const td = document.createElement("td");
-      td.textContent = valor;
-      tr.appendChild(td);
-    });
-
-    corpo.appendChild(tr);
-  });
-}
-
-el("clear-history").addEventListener("click", () => {
-  historico = [];
-  mostrarHistorico();
-});
-
-/* ==========================================================
-   EXPORTAÇÃO DO RELATÓRIO
-   ========================================================== */
-
-function escaparCSV(valor) {
-  const texto = String(valor ?? "");
-  return '"' + texto.replace(/"/g, '""') + '"';
-}
-
-el("download-report").addEventListener("click", () => {
-  if (!resultadoAvaliacao) {
-    mensagemGlobal("Treine o modelo antes de exportar o relatório.", "error");
-    return;
-  }
-
-  const av = resultadoAvaliacao;
-
-  const linhas = [
-    ["Indicador", "Valor"],
-    ["Algoritmo", "Naive Bayes Multinomial"],
-    ["Mensagens na base", registros.length],
-    ["Classes", classesBase.join("; ")],
-    ["Mensagens no teste", av.n],
-    ["Acurácia", pct(av.acuracia)],
-    ["Precisão macro", pct(av.precisao)],
-    ["Recall macro", pct(av.recall)],
-    ["F1 macro", pct(av.f1)],
-    [],
-    ["Matriz de confusão: classe real / classe prevista"],
-    ["Classe real", ...av.classes]
-  ];
-
-  av.classes.forEach(real => {
-    linhas.push([
-      real,
-      ...av.classes.map(prevista => av.matriz[real][prevista])
-    ]);
-  });
-
-  linhas.push([]);
-  linhas.push(["Nota", "Resultados experimentais; não representam validação clínica."]);
-
-  const csv = "\uFEFF" + linhas.map(linha =>
-    linha.map(escaparCSV).join(";")
-  ).join("\r\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = "relatorio_naive_bayes.csv";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-});
-
-/* ==========================================================
-   NAVEGAÇÃO
-   ========================================================== */
-
-function irParaEtapa(numero) {
-  document.querySelectorAll(".section").forEach(secao => {
-    secao.classList.remove("active");
-  });
-
-  el("step-" + numero).classList.add("active");
-
-  document.querySelectorAll("nav button").forEach(botao => {
-    botao.classList.toggle(
-      "active",
-      Number(botao.dataset.step) === numero
-    );
-  });
-
-  limparMensagemGlobal();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-document.querySelectorAll("nav button[data-step]").forEach(botao => {
-  botao.addEventListener("click", () => {
-    const numero = Number(botao.dataset.step);
-
-    if (numero > 1 && !registros.length) {
-      mensagemGlobal("Importe primeiro uma base CSV válida.", "error");
-      return;
-    }
-
-    if (numero === 4 && !modelo) {
-      mensagemGlobal("Treine o modelo antes de classificar mensagens.", "error");
-      return;
-    }
-
-    irParaEtapa(numero);
-  });
-});
-
-document.querySelectorAll("[data-goto]").forEach(botao => {
-  botao.addEventListener("click", () => {
-    const numero = Number(botao.dataset.goto);
-
-    if (numero > 1 && !registros.length) {
-      mensagemGlobal("Importe primeiro uma base CSV válida.", "error");
-      return;
-    }
-
-    if (numero === 4 && !modelo) {
-      mensagemGlobal("Treine o modelo antes de classificar mensagens.", "error");
-      return;
-    }
-
-    irParaEtapa(numero);
-  });
-});
-
-el("go-explore").addEventListener("click", () => irParaEtapa(2));
-
+/* Navegação e Botões de Voltar / Reiniciar */
+$('#bBack').onclick=()=>{
+ if(S.stage===2){S.stage=1;$('#s2').classList.add('hide');$('#s1').classList.remove('hide');}
+ else if(S.stage===3){S.stage=2;$('#s3').classList.add('hide');$('#s2').classList.remove('hide');}
+ else if(S.stage===4){S.stage=3;$('#s4').classList.add('hide');$('#s3').classList.remove('hide');}
+ etapas();
+};
+
+$('#bNew').onclick=()=>{
+ zerar();
+ ['#s2','#s3','#s4','#out','#prog'].forEach(s=>$(s).classList.add('hide'));$('#s1').classList.remove('hide');
+ $('#file').value=''; $('#txt').value='';
+ aviso(''); etapas(); window.scrollTo({top:0,behavior:'smooth'});
+};
 </script>
 </body>
 </html>
