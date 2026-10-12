@@ -84,17 +84,60 @@ const stopWords = new Set("a à agora ainda algo algumas alguns ali antes ao aos
 function normalize(s){return String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[’']/g," ").replace(/[^a-z0-9]+/g," ").trim();}
 function tokenize(s){return normalize(s).split(/\s+/).filter(w=>w && w.length>1 && !stopWords.has(w));}
 function parseCSV(text){
- text=text.replace(/^\uFEFF/,""); const first=(text.split(/\r?\n/).find(x=>x.trim())||"");
- const counts=[",",";","\t"].map(d=>({d,n:(first.match(new RegExp(d==="\t"?"\\t":d===","?",":";","g"))||[]).length}));
- counts.sort((a,b)=>b.n-a.n); const delim=counts[0].d;
- let out=[], row=[], field="", quoted=false;
- for(let i=0;i<text.length;i++){let c=text[i];
-  if(quoted){if(c==='"'&&text[i+1]==='"'){field+='"';i++;}else if(c==='"')quoted=false;else field+=c;}
-  else if(c==='"'&&field==="")quoted=true;
-  else if(c===delim){row.push(field);field="";}
-  else if(c==="\n"){row.push(field.replace(/\r$/,""));if(row.some(x=>x.trim()))out.push(row);row=[];field="";}
-  else field+=c;
- }
+    // Remove o BOM do início do arquivo de forma abrangente
+    text = text.replace(/^[\uFEFF\u00EF\u00BB\u00BF]/, "");
+    
+    const lines = text.split(/\r?\n/);
+    const first = (lines.find(x => x.trim()) || "");
+    const counts = [",", ";", "\t"].map(d => ({d, n: (first.match(new RegExp(d === "\t" ? "\\t" : d, "g")) || []).length}));
+    counts.sort((a, b) => b.n - a.n);
+    const delim = counts[0].d;
+
+    let out = [], row = [], field = "", quoted = false;
+    for (let i = 0; i < text.length; i++) {
+        let c = text[i];
+        if (quoted) {
+            if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+            else if (c === '"') quoted = false;
+            else field += c;
+        } else if (c === '"' && field === "") {
+            quoted = true;
+        } else if (c === delim) {
+            row.push(field);
+            field = "";
+        } else if (c === "\n") {
+            row.push(field.replace(/\r$/, ""));
+            if (row.some(x => x.trim())) out.push(row);
+            row = [];
+            field = "";
+        } else {
+            field += c;
+        }
+    }
+    if (field.length || row.length) {
+        row.push(field.replace(/\r$/, ""));
+        if (row.some(x => x.trim())) out.push(row);
+    }
+
+    if (out.length < 2) throw Error("O CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
+
+    // Normaliza o cabeçalho removendo caracteres invisíveis, acentos e espaços
+    const head = out[0].map(x => normalize(x).replace(/[^a-z0-9]/g, "").trim());
+    
+    let ti = head.indexOf("texto"), ci = head.indexOf("classe");
+    if (ti < 0 || ci < 0) {
+        if (out[0].length === 2) { ti = 0; ci = 1; }
+        else throw Error("Não encontrei as colunas 'texto' e 'classe' no cabeçalho.");
+    }
+
+    const data = out.slice(1).map(r => ({
+        texto: (r[ti] || "").trim(),
+        classe: (r[ci] || "").trim()
+    })).filter(r => r.texto && r.classe);
+
+    if (!data.length) throw Error("Nenhuma linha válida. Confira as colunas texto e classe.");
+    return data;
+}
  if(field.length||row.length){row.push(field.replace(/\r$/,""));if(row.some(x=>x.trim()))out.push(row);}
  if(out.length<2)throw Error("O CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
  const head=out[0].map(x=>normalize(x).replace(/\s/g,""));
