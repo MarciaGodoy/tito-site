@@ -85,37 +85,184 @@ function normalize(s){return String(s??"").normalize("NFD").replace(/[\u0300-\u0
 function tokenize(s){return normalize(s).split(/\s+/).filter(w=>w && w.length>1 && !stopWords.has(w));}
 
 // FUNÇÃO DE PARSE DE CSV ROBUSTA E FLEXÍVEL PARA QUALQUER BASE DE DADOS
-function parseCSV(text) {
-    // Remove o BOM e quaisquer caracteres invisíveis do início do texto e de cada linha
-    text = text.replace(/^[\uFEFF\u00EF\u00BB\u00BF]/, "").trim();
-    const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
-    if (lines.length < 2) throw Error("O ficheiro CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
 
-    // Limpa o BOM da primeira linha caso ele tenha permanecido no split
-    const headerLine = lines[0].replace(/^[\uFEFF\u00EF\u00BB\u00BF]/, "");
-    const delim = headerLine.includes(";") ? ";" : (headerLine.includes("\t") ? "\t" : ",");
-    
-    const head = headerLine.split(delim).map(x => normalize(x).replace(/[^a-z0-9]/g, "").trim());
-    
-    let ti = head.indexOf("texto"), ci = head.indexOf("classe");
-    if (ti < 0 || ci < 0) {
-        if (head.length >= 2) { ti = 0; ci = 1; }
-        else throw Error("Não foi possível identificar as colunas 'texto' e 'classe'.");
+function parseCSV(text) {
+    // 1. Limpar BOM, caracteres invisíveis e espaços externos
+    text = String(text ?? "")
+        .replace(/^[\uFEFF\u00EF\u00BB\u00BF]+/, "")
+        .replace(/\u0000/g, "")
+        .trim();
+
+    if (!text) {
+        throw new Error("O arquivo CSV está vazio.");
     }
 
-    const data = [];
-    for (let i = 1; i < lines.length; i++) {
-        const parts = lines[i].split(delim);
-        if (parts.length >= 2) {
-            let texto = parts[ti].replace(/^"(.*)"$/, '$1').trim();
-            let classe = parts[ci].replace(/^"(.*)"$/, '$1').trim();
-            if (texto && classe) { data.push({ texto, classe }); }
+    // 2. Detectar o separador, ignorando separadores dentro de aspas
+    function contarSeparadores(linha) {
+        const contagem = { ",": 0, ";": 0, "\t": 0 };
+        let aspas = false;
+
+        for (let i = 0; i < linha.length; i++) {
+            const c = linha[i];
+
+            if (c === '"') {
+                if (aspas && linha[i + 1] === '"') {
+                    i++;
+                } else {
+                    aspas = !aspas;
+                }
+            } else if (!aspas && c in contagem) {
+                contagem[c]++;
+            }
+        }
+
+        return contagem;
+    }
+
+    const primeiraLinha = text.split(/\r?\n/)
+        .find(linha => linha.trim() !== "");
+
+    if (!primeiraLinha) {
+        throw new Error("Não foram encontradas linhas no arquivo.");
+    }
+
+    const contagem = contarSeparadores(primeiraLinha);
+    const delim = Object.keys(contagem)
+        .sort((a, b) => contagem[b] - contagem[a])[0];
+
+    if (contagem[delim] === 0) {
+        throw new Error(
+            "Não foi possível identificar o separador do CSV."
+        );
+    }
+
+    // 3. Ler o CSV respeitando aspas, vírgulas e quebras de linha
+    const tabela = [];
+    let linha = [];
+    let campo = "";
+    let aspas = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+
+        if (aspas) {
+            if (c === '"') {
+                if (text[i + 1] === '"') {
+                    campo += '"';
+                    i++;
+                } else {
+                    aspas = false;
+                }
+            } else {
+                campo += c;
+            }
+        } else if (c === '"' && campo.trim() === "") {
+            campo = "";
+            aspas = true;
+        } else if (c === delim) {
+            linha.push(campo);
+            campo = "";
+        } else if (c === "\n" || c === "\r") {
+            if (c === "\r" && text[i + 1] === "\n") {
+                i++;
+            }
+
+            linha.push(campo);
+
+            if (linha.some(v => v.trim() !== "")) {
+                tabela.push(linha);
+            }
+
+            linha = [];
+            campo = "";
+        } else {
+            campo += c;
         }
     }
 
-    if (!data.length) throw Error("Nenhuma linha válida encontrada no CSV. Verifique o formato.");
-    return data;
+    if (aspas) {
+        throw new Error(
+            "O CSV contém aspas sem fechamento. Verifique o arquivo."
+        );
+    }
+
+    if (campo.length > 0 || linha.length > 0) {
+        linha.push(campo);
+
+        if (linha.some(v => v.trim() !== "")) {
+            tabela.push(linha);
+        }
+    }
+
+    if (tabela.length < 2) {
+        throw new Error(
+            "O CSV precisa conter cabeçalho e pelo menos uma mensagem."
+        );
+    }
+
+    // 4. Identificar as colunas texto e classe
+    const cabecalho = tabela[0].map(valor =>
+        normalize(valor)
+            .replace(/[^a-z0-9]/g, "")
+            .trim()
+    );
+
+    let ti = cabecalho.indexOf("texto");
+    let ci = cabecalho.indexOf("classe");
+
+    // Aceitar também arquivos de duas colunas com outros cabeçalhos
+    if (ti < 0 || ci < 0) {
+        if (cabecalho.length === 2) {
+            ti = 0;
+            ci = 1;
+        } else {
+            throw new Error(
+                "Não encontrei as colunas 'texto' e 'classe'. " +
+                "Confira o cabeçalho do CSV."
+            );
+        }
+    }
+
+    // 5. Construir os registros sem criar classes artificiais
+    const dados = [];
+
+    for (let i = 1; i < tabela.length; i++) {
+        const registro = tabela[i];
+
+        const textoMensagem = (registro[ti] ?? "").trim();
+        const classeMensagem = (registro[ci] ?? "").trim();
+
+        if (!textoMensagem || !classeMensagem) {
+            continue;
+        }
+
+        dados.push({
+            texto: textoMensagem,
+            classe: classeMensagem
+        });
+    }
+
+    if (!dados.length) {
+        throw new Error(
+            "Nenhuma mensagem válida foi encontrada. " +
+            "Confira se o arquivo contém dados nas colunas texto e classe."
+        );
+    }
+
+    // 6. Validar a estrutura e retornar os dados
+    const classesEncontradas = new Set(
+        dados.map(registro => registro.classe)
+    );
+
+    console.log("CSV carregado:", {
+        mensagens: dados.length,
+        classes: [...classesEncontradas],
+        separador: delim === "\t" ? "tabulação" : delim
+    });
+
+    return dados;
 }
+
 
 
 function rng(seed){let x=(Number(seed)||42)>>>0;return()=>{x=(1664525*x+1013904223)>>>0;return x/4294967296;};}
