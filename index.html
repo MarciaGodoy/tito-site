@@ -84,56 +84,47 @@ const stopWords = new Set("a à agora ainda algo algumas alguns ali antes ao aos
 function normalize(s){return String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[’']/g," ").replace(/[^a-z0-9]+/g," ").trim();}
 function tokenize(s){return normalize(s).split(/\s+/).filter(w=>w && w.length>1 && !stopWords.has(w));}
 
-function parseCSV(text){
-    text = text.replace(/^[\uFEFF\u00EF\u00BB\u00BF]/, "");
-    const first = (text.split(/\r?\n/).find(x => x.trim()) || "");
-    const counts = [",", ";", "\t"].map(d => ({d, n: (first.match(new RegExp(d === "\t" ? "\\t" : d, "g")) || []).length}));
-    counts.sort((a, b) => b.n - a.n);
-    const delim = counts[0].d;
+function parseCSV(text) {
+    // Remove o BOM do início do arquivo
+    text = text.replace(/^[\uFEFF\u00EF\u00BB\u00BF]/, "").trim();
+    
+    // Divide em linhas, ignorando linhas vazias
+    const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+    if (lines.length < 2) throw Error("O ficheiro CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
 
-    let out = [], row = [], field = "", quoted = false;
-    for (let i = 0; i < text.length; i++) {
-        let c = text[i];
-        if (quoted) {
-            if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
-            else if (c === '"') quoted = false;
-            else field += c;
-        } else if (c === '"' && field === "") {
-            quoted = true;
-        } else if (c === delim) {
-            row.push(field);
-            field = "";
-        } else if (c === "\n") {
-            row.push(field.replace(/\r$/, ""));
-            if (row.some(x => x.trim())) out.push(row);
-            row = [];
-            field = "";
-        } else {
-            field += c;
+    // Detecta o delimitador da primeira linha (cabeçalho)
+    const headerLine = lines[0];
+    const delim = headerLine.includes(";") ? ";" : (headerLine.includes("\t") ? "\t" : ",");
+
+    // Extrai e limpa o cabeçalho
+    const head = headerLine.split(delim).map(x => normalize(x).replace(/[^a-z0-9]/g, "").trim());
+    let ti = head.indexOf("texto"), ci = head.indexOf("classe");
+    
+    if (ti < 0 || ci < 0) {
+        if (head.length >= 2) { ti = 0; ci = 1; }
+        else throw Error("Não foi possível identificar as colunas 'texto' e 'classe'.");
+    }
+
+    // Processa cada linha de dados
+    const data = [];
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        // Divide a linha pelo delimitador, removendo aspas extras envolventes
+        const parts = line.split(delim);
+        if (parts.length >= 2) {
+            let texto = parts[ti].replace(/^"(.*)"$/, '$1').trim();
+            let classe = parts[ci].replace(/^"(.*)"$/, '$1').trim();
+            if (texto && classe) {
+                data.push({ texto, classe });
+            }
         }
     }
-    if (field.length || row.length) {
-        row.push(field.replace(/\r$/, ""));
-        if (row.some(x => x.trim())) out.push(row);
-    }
 
-    if (out.length < 2) throw Error("O CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
-
-    const head = out[0].map(x => normalize(x).replace(/[^a-z0-9]/g, "").trim());
-    let ti = head.indexOf("texto"), ci = head.indexOf("classe");
-    if (ti < 0 || ci < 0) {
-        if (out[0].length === 2) { ti = 0; ci = 1; }
-        else throw Error("Não encontrei as colunas 'texto' e 'classe' no cabeçalho.");
-    }
-
-    const data = out.slice(1).map(r => ({
-        texto: (r[ti] || "").trim(),
-        classe: (r[ci] || "").trim()
-    })).filter(r => r.texto && r.classe);
-
-    if (!data.length) throw Error("Nenhuma linha válida. Confira as colunas texto e classe.");
+    if (!data.length) throw Error("Nenhuma linha válida encontrada no CSV. Verifique o formato.");
     return data;
 }
+
+
 
 function rng(seed){let x=(Number(seed)||42)>>>0;return()=>{x=(1664525*x+1013904223)>>>0;return x/4294967296;};}
 function shuffle(a,random){a=a.slice();for(let i=a.length-1;i>0;i--){let j=Math.floor(random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
