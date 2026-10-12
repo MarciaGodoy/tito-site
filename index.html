@@ -84,47 +84,35 @@ const stopWords = new Set("a à agora ainda algo algumas alguns ali antes ao aos
 function normalize(s){return String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[’']/g," ").replace(/[^a-z0-9]+/g," ").trim();}
 function tokenize(s){return normalize(s).split(/\s+/).filter(w=>w && w.length>1 && !stopWords.has(w));}
 
+// FUNÇÃO DE PARSE DE CSV ROBUSTA E FLEXÍVEL PARA QUALQUER BASE DE DADOS
 function parseCSV(text) {
-    // Remove o BOM do início do arquivo
     text = text.replace(/^[\uFEFF\u00EF\u00BB\u00BF]/, "").trim();
-    
-    // Divide em linhas, ignorando linhas vazias
     const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
     if (lines.length < 2) throw Error("O ficheiro CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
 
-    // Detecta o delimitador da primeira linha (cabeçalho)
     const headerLine = lines[0];
     const delim = headerLine.includes(";") ? ";" : (headerLine.includes("\t") ? "\t" : ",");
-
-    // Extrai e limpa o cabeçalho
     const head = headerLine.split(delim).map(x => normalize(x).replace(/[^a-z0-9]/g, "").trim());
-    let ti = head.indexOf("texto"), ci = head.indexOf("classe");
     
+    let ti = head.indexOf("texto"), ci = head.indexOf("classe");
     if (ti < 0 || ci < 0) {
         if (head.length >= 2) { ti = 0; ci = 1; }
         else throw Error("Não foi possível identificar as colunas 'texto' e 'classe'.");
     }
 
-    // Processa cada linha de dados
     const data = [];
     for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        // Divide a linha pelo delimitador, removendo aspas extras envolventes
-        const parts = line.split(delim);
+        const parts = lines[i].split(delim);
         if (parts.length >= 2) {
             let texto = parts[ti].replace(/^"(.*)"$/, '$1').trim();
             let classe = parts[ci].replace(/^"(.*)"$/, '$1').trim();
-            if (texto && classe) {
-                data.push({ texto, classe });
-            }
+            if (texto && classe) { data.push({ texto, classe }); }
         }
     }
 
     if (!data.length) throw Error("Nenhuma linha válida encontrada no CSV. Verifique o formato.");
     return data;
 }
-
-
 
 function rng(seed){let x=(Number(seed)||42)>>>0;return()=>{x=(1664525*x+1013904223)>>>0;return x/4294967296;};}
 function shuffle(a,random){a=a.slice();for(let i=a.length-1;i>0;i--){let j=Math.floor(random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -196,8 +184,8 @@ function renderData(){
  $("trainBtn").disabled=rows.length<2;$("predictBtn").disabled=true;
 }
 
-// BOTÃO CARREGAR CSV ROBUSTO PARA MOBILE E DESKTOP
-$("loadBtn").addEventListener("click", async () => {
+// BOTÃO CARREGAR CSV USANDO FileReader COM SUPORTE A DISPOSITIVOS MÓVEIS
+$("loadBtn").addEventListener("click", () => {
     const fileInput = $("csvFile");
     if (!fileInput.files || fileInput.files.length === 0) {
         $("errorBox").textContent = "Por favor, selecione um ficheiro CSV primeiro.";
@@ -206,32 +194,37 @@ $("loadBtn").addEventListener("click", async () => {
     }
 
     const file = fileInput.files[0];
-    try {
-        const text = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = e => resolve(e.target.result);
-            reader.onerror = e => reject(new Error("Erro ao ler o ficheiro no dispositivo."));
-            reader.readAsText(file, "UTF-8");
-        });
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            const text = e.target.result;
+            const data = parseCSV(text);
+            rows = data;
+            texts = data.map(r => r.texto);
+            labels = data.map(r => r.classe);
+            classes = [...new Set(labels)].sort();
+            models = {};
+            history = [];
 
-        const data = parseCSV(text);
-        rows = data;
-        texts = data.map(r => r.texto);
-        labels = data.map(r => r.classe);
-        classes = [...new Set(labels)].sort();
-        models = {};
-        history = [];
+            renderData();
+            $("trainStatus").textContent = "Dados carregados com sucesso. Selecione os modelos e treine.";
+            $("errorBox").classList.add("hide");
+            $("results").innerHTML = '<div class="muted">Treine os modelos para ver as métricas.</div>';
+            $("comparison").textContent = "Treine os modelos para comparar os resultados.";
+            renderHistory();
+        } catch (err) {
+            $("errorBox").textContent = "Erro ao processar o CSV: " + (err.message || err);
+            $("errorBox").classList.remove("hide");
+        }
+    };
 
-        renderData();
-        $("trainStatus").textContent = "Dados carregados com sucesso. Selecione os modelos e treine.";
-        $("errorBox").classList.add("hide");
-        $("results").innerHTML = '<div class="muted">Treine os modelos para ver as métricas.</div>';
-        $("comparison").textContent = "Treine os modelos para comparar os resultados.";
-        renderHistory();
-    } catch (e) {
-        $("errorBox").textContent = "Erro ao processar o CSV: " + (e.message || e);
+    reader.onerror = function() {
+        $("errorBox").textContent = "Erro ao ler o ficheiro no dispositivo.";
         $("errorBox").classList.remove("hide");
-    }
+    };
+
+    reader.readAsText(file, "UTF-8");
 });
 
 function checkedAlgos(){return [...document.querySelectorAll(".algoCheck:checked")].map(x=>x.value);}
