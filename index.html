@@ -1137,19 +1137,31 @@ function trainAll() {
    A regra é independente do classificador. Não modifica o rótulo
    previsto nem cria uma classe nova no dataset.
 */
-function urgency(text) {
-  const t = normalize(text);
 
-  const rules = [
-    ['sangramento', /\bsangrament\w*\b/],
-    ['hemorragia', /\bhemorrag\w*\b/],
-    ['febre', /\bfebr\w*\b/],
-    ['pressão alta', /\bpressao alta\b|\bpressao esta alta\b|\bpressao arterial alta\b/],
-    ['bebê não se mexe', /\bbebe\b.{0,30}\b(nao mexe|nao se mexe|parou de mexer|menos movimentos|nao movimenta)\b|\b(nao sinto|parei de sentir)\b.{0,25}\b(bebe|movimentos)\b/],
-    ['dor', /\bdor\w*\b/]
-  ];
-
-  return rules.filter(([name, re]) => re.test(t)).map(x => x[0]);
+function urgency(text){
+    const t = normalize(text);
+    const rules = [
+        // 1. Sangramentos e perdas hemorrágicas
+        ["sangramento / perda sanguínea", /\bsangra(nd|nt|r)?(o|os|mento|mentos)?\b|\bperda(s)? de sangue\b|\bhemorragia(s)?\b/],
+        
+        // 2. Dores agudas (cabeça, abdome, pelve, contrações)
+        ["dor intensa / contrações prematuras", /\bdor(es)?\b.*\b(forte|intensa|abdome|abdominal|baixo ventre|cabeca|cabeca forte|costas|pelvica|contracao|contracoes)\b|\bcontracao(oes)? forte(s)?\b|\bperigo\b|\bcolica(s)? forte(s)?\b/],
+        
+        // 3. Sinais de hipertensão gestacional grave / Pré-eclâmpsia
+        ["pressão alta / distúrbios hipertensivos", /\bpressao alta\b|\bpressao arterial alta\b|\bhipertens(a|ao)\b|\bpressao 1[4-9]\b|\bpressao [2-9]0\b|\bvisao turva\b|\bpontos luminosos\b|\bver pisca-pisca\b|\binchaco repentino\b|\bedema intenso\b|\brosto inchado\b/],
+        
+        // 4. Bienestar fetal (movimentação e perda de líquido)
+        ["alteração fetal / perda de líquido", /\b(bebe|nenem|nenemzinho|feto)\b.*\b(nao mexe|nao se mexe|parou de mexer|nao movimenta|diminuiu os movimentos|menos movimentos)\b|\bnao sinto o bebe\b|\bperda(s)? de liquido\b|\bbolsa estourou\b|\bbolsa rompeu\b|\bliquido claro saindo\b|\bliquido esverdeado\b/],
+        
+        // 5. Febre e infecções
+        ["febre alta / infecção", /\bfebre(s)?\b.*\b(alta|forte|persistente|38|39|40)\b|\bcalafrio(s)?\b|\btranstorno urinario\b|\bdor ao urinar com febre\b/],
+        
+        // 6. Sintomas respiratórios e neurológicos agudos
+        ["falta de ar / sintomas neurológicos", /\bfalta de ar\b|\bdificuldade para respirar\b|\bcom ar curto\b|\bdesmaio(s)?\b|\bdesmaiou\b|\bperdeu os sentidos\b|\bconvulsao(oes)?\b|\btontura forte\b|\bvertigem intensa\b/]
+    ];
+    
+    // Filtra e retorna todas as categorias de alerta acionadas na mensagem
+    return rules.filter(r => r[1].test(t)).map(r => r[0]);
 }
 
 /* =========================================================
