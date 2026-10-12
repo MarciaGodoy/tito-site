@@ -1,3 +1,106 @@
+<!-- ELEMENTOS DE INTERFACE DO SIMULADOR (Certifique-se de que estes IDs existem no seu HTML) -->
+<div style="margin: 20px; padding: 20px; border: 1px solid #ccc; border-radius: 8px;">
+    <h3>Simulador MLP - Embra Care</h3>
+    <input type="text" id="userInput" placeholder="Digite a mensagem da gestante..." style="width: 70%; padding: 8px;" />
+    <button onclick="testarModeloMLP()" style="padding: 8px 15px;">Classificar Mensagem</button>
+    
+    <div id="resultadoDiv" style="margin-top: 15px; font-weight: bold; color: #2c3e50;"></div>
+</div>
+
+<script>
+    // Vocabulário de exemplo e pesos simulados para teste imediato
+    const vocabularioExemplo = ["AGENDAR", "CONSULTA", "EXAME", "SANGRAMENTO", "DOR", "ENJOO", "MEDICAMENTO", "DUVIDA"];
+    const classesExemplo = ["agendamento_consulta", "exames_resultados", "relato_urgencia", "relato_sintoma", "medicamentos", "duvida_gestacao"];
+
+    // Matrizes de pesos fictícias para demonstração (Camada oculta com 4 neurônios)
+    const W1Exemplo = Array(vocabularioExemplo.length).fill(0).map(() => Array(4).fill(0.1));
+    const b1Exemplo = [0.1, 0.1, 0.1, 0.1];
+    const W2Exemplo = Array(4).fill(0).map(() => Array(classesExemplo.length).fill(0.2));
+    b2Exemplo = Array(classesExemplo.length).fill(0.1);
+
+    class MLPClassifierJS {
+        constructor(vocabulario, classes, pesosOcultos, viésOculto, pesosSaida, viésSaida) {
+            this.vocab = vocabulario;
+            this.classes = classes;
+            this.W1 = pesosOcultos;
+            this.b1 = viésOculto;
+            this.W2 = pesosSaida;
+            this.b2 = viésSaida;
+        }
+
+        relu(x) {
+            return x.map(v => Math.max(0, v));
+        }
+
+        softmax(arr) {
+            const max = Math.max(...arr);
+            const exps = arr.map(x => Math.exp(x - max));
+            const sum = exps.reduce((a, b) => a + b, 0);
+            return exps.map(x => x / sum);
+        }
+
+        vetorizar(texto) {
+            const tokens = texto.toUpperCase().split(/\s+/);
+            return this.vocab.map(palavra => tokens.some(t => t.includes(palavra)) ? 1 : 0);
+        }
+
+        predict(textoInput) {
+            const x = this.vetorizar(textoInput);
+
+            // Camada Oculta (ReLU)
+            let h = new Array(this.b1.length).fill(0);
+            for (let j = 0; j < this.b1.length; j++) {
+                let soma = 0;
+                for (let i = 0; i < x.length; i++) {
+                    soma += x[i] * this.W1[i][j];
+                }
+                h[j] = soma + this.b1[j];
+            }
+            h = this.relu(h);
+
+            // Camada de Saída (Softmax)
+            let z = new Array(this.b2.length).fill(0);
+            for (let k = 0; k < this.b2.length; k++) {
+                let soma = 0;
+                for (let j = 0; j < h.length; j++) {
+                    soma += h[j] * this.W2[j][k];
+                }
+                z[k] = soma + this.b2[k];
+            }
+
+            const probs = this.softmax(z);
+            const maxProbIndex = probs.indexOf(Math.max(...probs));
+
+            return {
+                classePredita: this.classes[maxProbIndex],
+                confianca: (probs[maxProbIndex] * 100).toFixed(2) + "%"
+            };
+        }
+    }
+
+    // Instancia o modelo globalmente
+    const meuModeloMLP = new MLPClassifierJS(vocabularioExemplo, classesExemplo, W1Exemplo, b1Exemplo, W2Exemplo, b2Exemplo);
+
+    // Função que conecta a interface ao modelo
+    function testarModeloMLP() {
+        const textoDigitado = document.getElementById("userInput").value;
+        const divResultado = document.getElementById("resultadoDiv");
+
+        if (!textoDigitado.trim()) {
+            divResultado.innerHTML = "Por favor, digite uma mensagem.";
+            return;
+        }
+
+        // Executa a predição
+        const resultado = meuModeloMLP.predict(textoDigitado);
+
+        // Exibe o resultado na tela
+        divResultado.innerHTML = `
+            Classe Identificada: <span style="color: #27ae60;">${resultado.classePredita}</span><br>
+            Nível de Confiança: ${resultado.confianca}
+        `;
+    }
+</script>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -263,8 +366,111 @@ $("exportHistory").addEventListener("click",()=>{if(!history.length){alert("Não
         // 2. Exemplo de inicialização e teste ao carregar a página
         console.log("Módulo MLP do Embra Care carregado com sucesso no GitHub Pages.");
     </script>
-</body>
-</html>
+ <!-- ELEMENTOS DE INTERFACE DO SIMULADOR (Certifique-se de que estes IDs existem no seu HTML) -->
+<div style="margin: 20px; padding: 20px; border: 1px solid #ccc; border-radius: 8px;">
+    <h3>Simulador MLP - Embra Care</h3>
+    <input type="text" id="userInput" placeholder="Digite a mensagem da gestante..." style="width: 70%; padding: 8px;" />
+    <button onclick="testarModeloMLP()" style="padding: 8px 15px;">Classificar Mensagem</button>
+    
+    <div id="resultadoDiv" style="margin-top: 15px; font-weight: bold; color: #2c3e50;"></div>
+</div>
+
+<script>
+    // Vocabulário de exemplo e pesos simulados para teste imediato
+    const vocabularioExemplo = ["AGENDAR", "CONSULTA", "EXAME", "SANGRAMENTO", "DOR", "ENJOO", "MEDICAMENTO", "DUVIDA"];
+    const classesExemplo = ["agendamento_consulta", "exames_resultados", "relato_urgencia", "relato_sintoma", "medicamentos", "duvida_gestacao"];
+
+    // Matrizes de pesos fictícias para demonstração (Camada oculta com 4 neurônios)
+    const W1Exemplo = Array(vocabularioExemplo.length).fill(0).map(() => Array(4).fill(0.1));
+    const b1Exemplo = [0.1, 0.1, 0.1, 0.1];
+    const W2Exemplo = Array(4).fill(0).map(() => Array(classesExemplo.length).fill(0.2));
+    b2Exemplo = Array(classesExemplo.length).fill(0.1);
+
+    class MLPClassifierJS {
+        constructor(vocabulario, classes, pesosOcultos, viésOculto, pesosSaida, viésSaida) {
+            this.vocab = vocabulario;
+            this.classes = classes;
+            this.W1 = pesosOcultos;
+            this.b1 = viésOculto;
+            this.W2 = pesosSaida;
+            this.b2 = viésSaida;
+        }
+
+        relu(x) {
+            return x.map(v => Math.max(0, v));
+        }
+
+        softmax(arr) {
+            const max = Math.max(...arr);
+            const exps = arr.map(x => Math.exp(x - max));
+            const sum = exps.reduce((a, b) => a + b, 0);
+            return exps.map(x => x / sum);
+        }
+
+        vetorizar(texto) {
+            const tokens = texto.toUpperCase().split(/\s+/);
+            return this.vocab.map(palavra => tokens.some(t => t.includes(palavra)) ? 1 : 0);
+        }
+
+        predict(textoInput) {
+            const x = this.vetorizar(textoInput);
+
+            // Camada Oculta (ReLU)
+            let h = new Array(this.b1.length).fill(0);
+            for (let j = 0; j < this.b1.length; j++) {
+                let soma = 0;
+                for (let i = 0; i < x.length; i++) {
+                    soma += x[i] * this.W1[i][j];
+                }
+                h[j] = soma + this.b1[j];
+            }
+            h = this.relu(h);
+
+            // Camada de Saída (Softmax)
+            let z = new Array(this.b2.length).fill(0);
+            for (let k = 0; k < this.b2.length; k++) {
+                let soma = 0;
+                for (let j = 0; j < h.length; j++) {
+                    soma += h[j] * this.W2[j][k];
+                }
+                z[k] = soma + this.b2[k];
+            }
+
+            const probs = this.softmax(z);
+            const maxProbIndex = probs.indexOf(Math.max(...probs));
+
+            return {
+                classePredita: this.classes[maxProbIndex],
+                confianca: (probs[maxProbIndex] * 100).toFixed(2) + "%"
+            };
+        }
+    }
+
+    // Instancia o modelo globalmente
+    const meuModeloMLP = new MLPClassifierJS(vocabularioExemplo, classesExemplo, W1Exemplo, b1Exemplo, W2Exemplo, b2Exemplo);
+
+    // Função que conecta a interface ao modelo
+    function testarModeloMLP() {
+        const textoDigitado = document.getElementById("userInput").value;
+        const divResultado = document.getElementById("resultadoDiv");
+
+        if (!textoDigitado.trim()) {
+            divResultado.innerHTML = "Por favor, digite uma mensagem.";
+            return;
+        }
+
+        // Executa a predição
+        const resultado = meuModeloMLP.predict(textoDigitado);
+
+        // Exibe o resultado na tela
+        divResultado.innerHTML = `
+            Classe Identificada: <span style="color: #27ae60;">${resultado.classePredita}</span><br>
+            Nível de Confiança: ${resultado.confianca}
+        `;
+    }
+</script>
 
 </body>
 </html>
+
+
