@@ -39,10 +39,10 @@ table{border-collapse:collapse;width:100%;font-size:11px;margin-top:6px}th,td{bo
   <h2>1. Carregar conjunto de dados</h2>
   <p>Importe um CSV com duas colunas: <b>texto</b> e <b>classe</b>. Aceita vírgula, ponto e vírgula ou tabulação e campos entre aspas.</p>
   <div class="row"><input id="csvFile" type="file" accept=".csv,text/csv"><button id="loadBtn">Carregar CSV</button></div>
-  <div id="dataStatus" class="muted" style="margin-top:8px">Nenhum arquivo carregado.</div>
+  <div id="dataStatus" class="muted" style="margin-top:8px">Nenhum ficheiro carregado.</div>
   <div id="previewWrap" class="table-wrap hide"><h3>Prévia dos dados</h3><table id="preview"></table></div>
  </div>
- <div class="panel"><h2>Classes encontradas no CSV</h2><div id="classList" class="classes muted">Aguardando arquivo.</div><p id="classStats" class="muted"></p></div>
+ <div class="panel"><h2>Classes encontradas no CSV</h2><div id="classList" class="classes muted">Aguardando ficheiro.</div><p id="classStats" class="muted"></p></div>
 </section>
 <section class="panel">
  <h2>2. Selecione os algoritmos</h2>
@@ -83,12 +83,10 @@ let rows=[], texts=[], labels=[], classes=[], models={}, history=[];
 const stopWords = new Set("a à agora ainda algo algumas alguns ali antes ao aos aquela aquelas aquele aqueles aquilo as assim até com como da das de dela delas dele deles depois do dos e ela elas ele eles em enquanto entre era essa essas esse esses esta estas este estes eu foi foram há isso isto já lhe lhes mais mas me mesma mesmo meu meus minha minhas muita muitas muito muitos na nada nas nem nesse nesta neste no nos nós nossa nossas nosso nossos num numa o os ou outra outras outro outros para pela pelas pelo pelos por porque qual quanto que quem se sem ser seu seus sua suas também te tem tendo ter teu teus tua tuas um uma umas uns você vocês".split(/\s+/));
 function normalize(s){return String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[’']/g," ").replace(/[^a-z0-9]+/g," ").trim();}
 function tokenize(s){return normalize(s).split(/\s+/).filter(w=>w && w.length>1 && !stopWords.has(w));}
+
 function parseCSV(text){
-    // Remove o BOM do início do arquivo de forma abrangente
     text = text.replace(/^[\uFEFF\u00EF\u00BB\u00BF]/, "");
-    
-    const lines = text.split(/\r?\n/);
-    const first = (lines.find(x => x.trim()) || "");
+    const first = (text.split(/\r?\n/).find(x => x.trim()) || "");
     const counts = [",", ";", "\t"].map(d => ({d, n: (first.match(new RegExp(d === "\t" ? "\\t" : d, "g")) || []).length}));
     counts.sort((a, b) => b.n - a.n);
     const delim = counts[0].d;
@@ -121,9 +119,7 @@ function parseCSV(text){
 
     if (out.length < 2) throw Error("O CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
 
-    // Normaliza o cabeçalho removendo caracteres invisíveis, acentos e espaços
     const head = out[0].map(x => normalize(x).replace(/[^a-z0-9]/g, "").trim());
-    
     let ti = head.indexOf("texto"), ci = head.indexOf("classe");
     if (ti < 0 || ci < 0) {
         if (out[0].length === 2) { ti = 0; ci = 1; }
@@ -138,15 +134,7 @@ function parseCSV(text){
     if (!data.length) throw Error("Nenhuma linha válida. Confira as colunas texto e classe.");
     return data;
 }
- if(field.length||row.length){row.push(field.replace(/\r$/,""));if(row.some(x=>x.trim()))out.push(row);}
- if(out.length<2)throw Error("O CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
- const head=out[0].map(x=>normalize(x).replace(/\s/g,""));
- let ti=head.indexOf("texto"), ci=head.indexOf("classe");
- if(ti<0||ci<0){if(out[0].length===2){ti=0;ci=1;}else throw Error("Não encontrei as colunas 'texto' e 'classe' no cabeçalho.");}
- const data=out.slice(1).map(r=>({texto:(r[ti]||"").trim(),classe:(r[ci]||"").trim()})).filter(r=>r.texto&&r.classe);
- if(!data.length)throw Error("Nenhuma linha válida. Confira as colunas texto e classe.");
- return data;
-}
+
 function rng(seed){let x=(Number(seed)||42)>>>0;return()=>{x=(1664525*x+1013904223)>>>0;return x/4294967296;};}
 function shuffle(a,random){a=a.slice();for(let i=a.length-1;i>0;i--){let j=Math.floor(random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function stratifiedSplit(data,ratio,seed){
@@ -216,11 +204,45 @@ function renderData(){
  $("preview").innerHTML="<thead><tr><th>texto</th><th>classe</th></tr></thead><tbody>"+rows.slice(0,5).map(r=>`<tr><td>${esc(r.texto)}</td><td>${esc(r.classe)}</td></tr>`).join("")+"</tbody>";
  $("trainBtn").disabled=rows.length<2;$("predictBtn").disabled=true;
 }
-$("loadBtn").addEventListener("click",async()=>{
- const f=$("csvFile").files[0];if(!f){$("errorBox").textContent="Selecione um arquivo CSV primeiro.";$("errorBox").classList.remove("hide");return;}
- try{const data=parseCSV(await f.text());rows=data;texts=data.map(r=>r.texto);labels=data.map(r=>r.classe);classes=[...new Set(labels)].sort();models={};history=[];renderData();$("trainStatus").textContent="Dados carregados. Selecione os modelos e treine."; $("errorBox").classList.add("hide");$("results").innerHTML='<div class="muted">Treine os modelos para ver as métricas.</div>';$("comparison").textContent="Treine os modelos para comparar os resultados.";renderHistory();}
- catch(e){$("errorBox").textContent=e.message\vert{}\vert{}String(e);$("errorBox").classList.remove("hide");}
+
+// BOTÃO CARREGAR CSV ROBUSTO PARA MOBILE E DESKTOP
+$("loadBtn").addEventListener("click", async () => {
+    const fileInput = $("csvFile");
+    if (!fileInput.files || fileInput.files.length === 0) {
+        $("errorBox").textContent = "Por favor, selecione um ficheiro CSV primeiro.";
+        $("errorBox").classList.remove("hide");
+        return;
+    }
+
+    const file = fileInput.files[0];
+    try {
+        const text = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = e => reject(new Error("Erro ao ler o ficheiro no dispositivo."));
+            reader.readAsText(file, "UTF-8");
+        });
+
+        const data = parseCSV(text);
+        rows = data;
+        texts = data.map(r => r.texto);
+        labels = data.map(r => r.classe);
+        classes = [...new Set(labels)].sort();
+        models = {};
+        history = [];
+
+        renderData();
+        $("trainStatus").textContent = "Dados carregados com sucesso. Selecione os modelos e treine.";
+        $("errorBox").classList.add("hide");
+        $("results").innerHTML = '<div class="muted">Treine os modelos para ver as métricas.</div>';
+        $("comparison").textContent = "Treine os modelos para comparar os resultados.";
+        renderHistory();
+    } catch (e) {
+        $("errorBox").textContent = "Erro ao processar o CSV: " + (e.message || e);
+        $("errorBox").classList.remove("hide");
+    }
 });
+
 function checkedAlgos(){return [...document.querySelectorAll(".algoCheck:checked")].map(x=>x.value);}
 $("trainBtn").addEventListener("click",()=>{
  if(rows.length<2)return;let chosen=checkedAlgos();if(!chosen.length){$("errorBox").textContent="Selecione pelo menos um algoritmo.";$("errorBox").classList.remove("hide");return;}
@@ -248,12 +270,9 @@ function renderHistory(){if(!history.length){$("historyWrap").innerHTML='<p clas
 $("clearHistory").addEventListener("click",()=>{history=[];renderHistory();});
 $("exportHistory").addEventListener("click",()=>{if(!history.length){alert("Não há previsões para exportar.");return;}const csv=[["data_hora","texto","classe_prevista","confianca","algoritmo","alerta"],...history.map(h=>[h.data,h.texto,h.classe,h.confianca,h.algoritmo,h.alerta])].map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}));a.download="historico_previsoes.csv";a.click();URL.revokeObjectURL(a.href);});
 
-// -------------------------------------------------------------------------
-// LÓGICA E CLASSE DO MLP (Perceptron Multicamadas em JavaScript Puro)
-// -------------------------------------------------------------------------
+// MLP CLASSIFIER JS
 const vocabularioExemplo = ["AGENDAR", "CONSULTA", "EXAME", "SANGRAMENTO", "DOR", "ENJOO", "MEDICAMENTO", "DUVIDA"];
 const classesExemplo = ["agendamento_consulta", "exames_resultados", "relato_urgencia", "relato_sintoma", "medicamentos", "duvida_gestacao"];
-
 const W1Exemplo = Array(vocabularioExemplo.length).fill(0).map(() => Array(4).fill(0.1));
 const b1Exemplo = [0.1, 0.1, 0.1, 0.1];
 const W2Exemplo = Array(4).fill(0).map(() => Array(classesExemplo.length).fill(0.2));
@@ -268,68 +287,45 @@ class MLPClassifierJS {
         this.W2 = pesosSaida;
         this.b2 = viésSaida;
     }
-
     relu(x) { return x.map(v => Math.max(0, v)); }
-
     softmax(arr) {
         const max = Math.max(...arr);
         const exps = arr.map(x => Math.exp(x - max));
         const sum = exps.reduce((a, b) => a + b, 0);
         return exps.map(x => x / sum);
     }
-
     vetorizar(texto) {
         const tokens = texto.toUpperCase().split(/\s+/);
         return this.vocab.map(palavra => tokens.some(t => t.includes(palavra)) ? 1 : 0);
     }
-
     predict(textoInput) {
         const x = this.vetorizar(textoInput);
         let h = new Array(this.b1.length).fill(0);
         for (let j = 0; j < this.b1.length; j++) {
             let soma = 0;
-            for (let i = 0; i < x.length; i++) {
-                soma += x[i] * this.W1[i][j];
-            }
+            for (let i = 0; i < x.length; i++) { soma += x[i] * this.W1[i][j]; }
             h[j] = soma + this.b1[j];
         }
         h = this.relu(h);
-
         let z = new Array(this.b2.length).fill(0);
         for (let k = 0; k < this.b2.length; k++) {
             let soma = 0;
-            for (let j = 0; j < h.length; j++) {
-                soma += h[j] * this.W2[j][k];
-            }
+            for (let j = 0; j < h.length; j++) { soma += h[j] * this.W2[j][k]; }
             z[k] = soma + this.b2[k];
         }
-
         const probs = this.softmax(z);
         const maxProbIndex = probs.indexOf(Math.max(...probs));
-
-        return {
-            classePredita: this.classes[maxProbIndex],
-            confianca: (probs[maxProbIndex] * 100).toFixed(2) + "%"
-        };
+        return { classePredita: this.classes[maxProbIndex], confianca: (probs[maxProbIndex] * 100).toFixed(2) + "%" };
     }
 }
 
 const meuModeloMLP = new MLPClassifierJS(vocabularioExemplo, classesExemplo, W1Exemplo, b1Exemplo, W2Exemplo, b2Exemplo);
-
 function testarModeloMLP() {
     const textoDigitado = document.getElementById("userInputMLP").value;
     const divResultado = document.getElementById("resultadoDivMLP");
-
-    if (!textoDigitado.trim()) {
-        divResultado.innerHTML = "Por favor, digite uma mensagem.";
-        return;
-    }
-
+    if (!textoDigitado.trim()) { divResultado.innerHTML = "Por favor, digite uma mensagem."; return; }
     const resultado = meuModeloMLP.predict(textoDigitado);
-    divResultado.innerHTML = `
-        <b>Classe Identificada (MLP):</b> <span style="color: #27ae60;">${resultado.classePredita}</span><br>
-        <b>Nível de Confiança:</b> ${resultado.confianca}
-    `;
+    divResultado.innerHTML = `<b>Classe Identificada (MLP):</b> <span style="color: #27ae60;">${resultado.classePredita}</span><br><b>Nível de Confiança:</b> ${resultado.confianca}`;
 }
 </script>
 </body>
