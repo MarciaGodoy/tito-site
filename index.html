@@ -86,12 +86,15 @@ function tokenize(s){return normalize(s).split(/\s+/).filter(w=>w && w.length>1 
 
 // FUNÇÃO DE PARSE DE CSV ROBUSTA E FLEXÍVEL PARA QUALQUER BASE DE DADOS
 function parseCSV(text) {
+    // Remove o BOM e quaisquer caracteres invisíveis do início do texto e de cada linha
     text = text.replace(/^[\uFEFF\u00EF\u00BB\u00BF]/, "").trim();
     const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
     if (lines.length < 2) throw Error("O ficheiro CSV precisa conter cabeçalho e pelo menos uma linha de dados.");
 
-    const headerLine = lines[0];
+    // Limpa o BOM da primeira linha caso ele tenha permanecido no split
+    const headerLine = lines[0].replace(/^[\uFEFF\u00EF\u00BB\u00BF]/, "");
     const delim = headerLine.includes(";") ? ";" : (headerLine.includes("\t") ? "\t" : ",");
+    
     const head = headerLine.split(delim).map(x => normalize(x).replace(/[^a-z0-9]/g, "").trim());
     
     let ti = head.indexOf("texto"), ci = head.indexOf("classe");
@@ -113,6 +116,7 @@ function parseCSV(text) {
     if (!data.length) throw Error("Nenhuma linha válida encontrada no CSV. Verifique o formato.");
     return data;
 }
+
 
 function rng(seed){let x=(Number(seed)||42)>>>0;return()=>{x=(1664525*x+1013904223)>>>0;return x/4294967296;};}
 function shuffle(a,random){a=a.slice();for(let i=a.length-1;i>0;i--){let j=Math.floor(random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
